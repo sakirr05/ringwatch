@@ -185,12 +185,21 @@ be fabricated. The two honest, defensible claims are:
 - [x] `VIDEO_SCRIPT.md` for the 5-minute pitch
 - [x] Tests: temporal-split correctness, graph metrics vs networkx, ring-concentration statistic, LLM JSON schema, number-provenance guard, AI/determinism import boundary — **100 tests**
 
-### Outstanding
+- [x] **Real LLM narratives** — 11/12 validated against live Gemini, 1
+      `NARRATIVE_UNAVAILABLE` from a genuine timeout. Number-provenance guard held on all
+      11.
 
-- [ ] **Real LLM narratives require an API key.** The layer is implemented, tested, and
-      verified end to end: it selects 12 clusters deterministically and, with no key
-      configured, every one falls back to `NARRATIVE_UNAVAILABLE` with the reason stated.
-      That is the honest failure path working correctly, but the video needs at least one
-      *real* narrative on screen. Set `GEMINI_API_KEY` or `GROQ_API_KEY` in `.env` and run
-      `python run.py --stage narrate`.
+### Outstanding — submission, not code
+
+The build is complete and verified. What remains is publication:
+
+- [ ] **Push to a public GitHub repo.** No git remote exists; all 12 commits are local
+      only. The buildathon requires a public repo URL on the form.
+- [ ] **Record the 5-minute video.** Script with timings and exact commands is in
+      `VIDEO_SCRIPT.md`. Needs an unlisted URL for the form.
+- [ ] **Fill the application form** — track, project name, problem statement, repo URL,
+      video URL, and the failure-analysis field (draft it from `FAILURE_LOG.md`; the
+      17:40 entry on the failed hypothesis is the strongest material).
+- [ ] **Rotate the Gemini API key** after submission — it was pasted in plaintext during
+      the build conversation, so treat it as compromised even though it never entered git.
 - [ ] Phase 8 (Elliptic stretch dataset) — not started, first thing cut as planned.
