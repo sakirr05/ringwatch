@@ -52,12 +52,37 @@ resamples, both models scored on identical resampled test rows:
 Baseline AUC-PR of 0.5188 against a 0.0344 prevalence floor is a **15.1× lift over
 random**. The graph adds nothing to it.
 
+![Precision-recall curves for all four variants, overlapping almost exactly](docs/pr_curve.png)
+
+The four curves are indistinguishable by eye, which is the honest picture of this result.
+Regenerate with `python scripts/make_pr_curve.py`.
+
 These two results are not in tension. The rings are real but **rare** — 12 of them —
 and the graph reaches only **5.38% of test rows**. Twelve rings cannot move a metric
 averaged over 118,108 transactions, while 433 tabular features already capture most of
 the available signal. On the linked subgroup alone the point estimate does turn positive
 (0.4118 → 0.4298, **+0.017**), but its CI spans zero: 6,354 rows containing 136 fraud
 cases cannot resolve an effect that small.
+
+### "But did you try giving the graph more coverage?"
+
+Yes — that is the first objection, so it was tested rather than argued about. Re-running
+the full pipeline at higher hub-suppression caps:
+
+| cap | coverage of test rows | AUC-PR | Δ vs baseline |
+|---|---|---|---|
+| 5 *(shipped)* | 5.38% | 0.5168 | −0.0020 |
+| 20 | 15.41% | 0.5191 | **+0.0003** |
+| 50 | 26.18% | 0.5152 | −0.0036 |
+
+Tripling coverage moves AUC-PR by +0.0003 — an order of magnitude *inside* the ±0.004
+noise band established by the bootstrap above, and the cap-20 run exhausted its 2,000
+boosting rounds without early stopping, making it the less trustworthy of the three.
+Quintupling coverage makes things actively worse.
+
+**Coverage is not the binding constraint.** The +0.0003 is reported here precisely
+*because* it is positive and meaningless: selecting it as "the graph helps at cap 20"
+would be exactly the p-hacking this project refused to do.
 
 **What the graph layer is therefore used for here:** surfacing statistically anomalous
 clusters for analyst review — which is what it demonstrably does — and *not* feature-level

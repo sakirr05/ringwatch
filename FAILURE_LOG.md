@@ -107,6 +107,17 @@ features improve fraud detection. Measured honestly, they do not.
   interview question about how many variants I tried, and I would not be able to honestly
   answer that question. Rejected deliberately.
 
+  **One follow-up was worth running**, because it is the first question any reviewer asks
+  and because it has a pre-registered answer rather than a hunted one: *is the problem
+  simply that coverage is too low?* Re-running at higher hub caps — cap 20 (15.41%
+  coverage) gives Δ = **+0.0003**, cap 50 (26.18% coverage) gives Δ = **−0.0036**.
+  Tripling coverage moves the metric by three ten-thousandths, an order of magnitude
+  inside the ±0.004 noise band, and the cap-20 run never early-stopped (it exhausted all
+  2,000 boosting rounds), so it is the least trustworthy of the three. Coverage is not the
+  binding constraint, and the conclusion holds. I am reporting the +0.0003 *because* it is
+  positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
+  the move this entry exists to refuse.
+
 ## [2026-09-01 16:20] — LightGBM rejected 31 columns: a pandas 3.0 dtype change
 
 - **Symptom:** First baseline training run died immediately:
