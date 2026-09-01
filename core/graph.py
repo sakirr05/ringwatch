@@ -311,6 +311,7 @@ def graph_features(graph: EntityGraph) -> pd.DataFrame:
     return pd.DataFrame(
         {
             UID_COL: graph.uids,
+            "g_component": uid_labels,
             "g_component_size": entity_component_size,
             "g_component_size_total": pd.Series(uid_labels)
             .map(component_sizes)

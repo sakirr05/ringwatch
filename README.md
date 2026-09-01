@@ -43,17 +43,71 @@ flatter the model.
 
 ## Architecture
 
-*(Diagram added in Phase 7; the boundary it draws is enforced from Phase 6 onward.)*
-
 The central structural rule: **one box computes numbers, a completely separate box writes
 sentences, and code — not convention — prevents the second from touching the first.**
 
-- **Deterministic layer** (`core/`): the temporal split, the LightGBM classifier, the
-  connected-components and k-core graph algorithms, and every metric. Fully offline.
-  Produces every score, every flag, and every number.
-- **Narrative layer** (`ai/`): receives already-flagged clusters and their evidence, and
-  returns schema-validated JSON prose. It cannot compute, alter, or override a score or a
-  flag, and any number it emits that was not in the evidence it was handed is rejected.
+```mermaid
+flowchart TB
+    subgraph DET["🔒 DETERMINISTIC LAYER — core/ · computes every number"]
+        direction TB
+        RAW["IEEE-CIS raw CSV<br/>590,540 transactions"]
+        SPLIT["core/split.py<br/><b>temporal</b> split @ 80th pct<br/>472,432 train / 118,108 test"]
+        FEAT["core/features.py<br/>tabular features"]
+
+        subgraph GRAPH["core/graph.py — classical graph algorithms, no GNN"]
+            UID["entity fingerprint<br/>card1 + addr1 + (day − D1)"]
+            HUB["hub suppression<br/>cap=5, below percolation"]
+            CC["connected components<br/>union-find"]
+            KC["<b>k-core decomposition</b><br/>Batagelj–Zaversnik peeling<br/>hand-written, O(V+E)"]
+            UID --> HUB --> CC & KC
+        end
+
+        MODEL["core/model.py<br/>LightGBM · CPU · seed=42"]
+        EVAL["core/evaluate.py<br/><b>AUC-PR</b> · PR curve<br/>insult-rate costing"]
+        CLUST["core/clusters.py<br/>selects flagged clusters<br/>computes all evidence"]
+
+        RAW --> SPLIT --> FEAT --> MODEL
+        SPLIT --> UID
+        CC & KC -->|structural features only<br/>no label-derived features| MODEL
+        MODEL --> EVAL --> CLUST
+    end
+
+    CONTRACT["<b>ai/contract.py</b><br/>frozen ClusterEvidence<br/>━━━ THE BOUNDARY ━━━<br/>the only shared surface"]
+
+    subgraph AI["✍️ NARRATIVE LAYER — ai/ · writes only sentences"]
+        direction TB
+        PROV["ai/provider.py<br/>Gemini → Groq fallback<br/>retry once · SHA-256 cache"]
+        SCHEMA["ai/schema.py<br/>strict JSON validation<br/><b>number-provenance guard</b>"]
+        OUT["validated narrative<br/>or NARRATIVE_UNAVAILABLE"]
+        PROV --> SCHEMA --> OUT
+    end
+
+    CLUST -->|already-flagged clusters<br/>+ their evidence| CONTRACT
+    CONTRACT --> PROV
+    AI -.->|❌ no import path back<br/>enforced by test| DET
+
+    style DET fill:#e8f4ea,stroke:#2d6a4f,stroke-width:3px
+    style AI fill:#eef2fb,stroke:#3d5a99,stroke-width:3px
+    style CONTRACT fill:#fff4e0,stroke:#b06500,stroke-width:3px
+    style KC fill:#d8eede,stroke:#2d6a4f,stroke-width:2px
+    style SCHEMA fill:#dde6f7,stroke:#3d5a99,stroke-width:2px
+```
+
+**How the boundary is enforced** — not by convention, but by three mechanisms:
+
+1. **One-way imports.** `core/` imports `ai.contract` to build the handover object.
+   `ai/` never imports `core/`. `tests/test_ai_boundary.py` parses the AST of every
+   module under `ai/` and fails if any of them imports the engine or a modelling library.
+   The LLM has no code path to a score.
+2. **Frozen evidence.** `ClusterEvidence` is an immutable dataclass. The narrative layer
+   physically cannot mutate what it was given.
+3. **Number-provenance guard.** Every numeric token in the model's prose must already
+   appear in the evidence. An invented rupee total, an invented count — even *correct*
+   arithmetic the model performed itself — is rejected. Two failures and the cluster gets
+   `NARRATIVE_UNAVAILABLE` rather than a guess.
+
+If the entire `ai/` package were deleted, every metric RingWatch reports would be
+unchanged.
 
 ## Ground-truth honesty
 
@@ -103,7 +157,72 @@ Written as they are discovered, not reconstructed at the end.
 
 ## Deployment
 
-*(Written in Phase 7, once the pipeline is runnable end to end.)*
+Reproducible from a clean clone on CPU alone. **No GPU, no cloud compute, no Kaggle
+account.** End-to-end cold run is roughly 20 minutes, dominated by training four model
+variants for the ablation.
+
+### 1. Environment
+
+```bash
+git clone <this-repo> && cd ringwatch
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Tested on Python 3.14.6 with pandas 3.0.5, numpy 2.5.2, scikit-learn 1.9.0,
+LightGBM 4.7.0, networkx 3.6.1. Needs ~4 GB RAM and ~2 GB disk.
+
+### 2. Data
+
+```bash
+python scripts/fetch_data.py
+```
+
+Downloads `train_transaction.csv` (652 MB) and `train_identity.csv` (26 MB) from an
+ungated mirror of the IEEE-CIS competition data and verifies row counts. The canonical
+source is Kaggle, which requires an authenticated account that has accepted the
+competition rules; the mirror keeps this repo reproducible for reviewers who have
+neither. Integrity is re-checked on load — row count and fraud rate are asserted against
+published values, so a truncated download fails loudly rather than quietly degrading a
+metric.
+
+### 3. Run the pipeline
+
+```bash
+python run.py --stage data       # build the Parquet cache, print split statistics
+python run.py --stage graph      # entity graph + ring-concentration test
+python run.py --stage ablation   # the four-variant comparison and the negative case
+python run.py --stage all        # everything
+```
+
+Every stage is deterministic (fixed seeds, `deterministic=True` in LightGBM) and caches
+its expensive artifacts under `data/cache/`, so re-runs are fast and reproduce identical
+numbers.
+
+### 4. Narratives (optional)
+
+The LLM layer is the only part that needs network access or credentials, and **nothing
+in the metrics depends on it**:
+
+```bash
+cp .env.example .env    # add GEMINI_API_KEY and/or GROQ_API_KEY
+python run.py --stage narrate
+```
+
+Without keys, this stage reports `NARRATIVE_UNAVAILABLE` for every cluster and the rest
+of the pipeline is unaffected. Responses are cached by SHA-256 of the prompt, so repeat
+runs are free and reproducible.
+
+### 5. Tests
+
+```bash
+pytest -q
+```
+
+Covers temporal-split correctness (including no-leakage under tied timestamps), the
+k-core implementation against networkx as an independent oracle, the ring-concentration
+statistic on planted and null structure, LLM JSON schema validation, the
+number-provenance guard, and the AI/determinism import boundary.
 
 ## Legacy
 

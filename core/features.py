@@ -17,7 +17,12 @@ from core.data import ID_COL, TARGET, TIME_COL
 # is outside the range the trees ever saw. A split on it cannot generalise; it can only
 # memorise the training period. Cyclical derivatives of it (hour, day-of-week) DO
 # generalise and are engineered below.
-EXCLUDED = {ID_COL, TARGET, TIME_COL}
+# `g_component` is a connected-component LABEL, not a quantity. Its numeric value is an
+# arbitrary node id, so letting a tree split on it would be memorising which specific
+# components happened to contain fraud in the training period -- an identifier leak
+# dressed up as a feature. It is carried in the frame for cluster grouping and never fed
+# to the model.
+EXCLUDED = {ID_COL, TARGET, TIME_COL, "g_component", "uid"}
 
 
 def add_time_features(df: pd.DataFrame) -> pd.DataFrame:

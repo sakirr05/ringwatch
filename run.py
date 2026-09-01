@@ -35,9 +35,12 @@ from core.graph import (
     graph_features,
     graph_summary,
 )
+from core.clusters import build_cluster_evidence
 from core.model import train_model
 from core.ring_evidence import ring_concentration_test
 from core.split import split_summary, temporal_split
+
+from ai.narrate import narrate_all
 
 STAGES = ("data", "baseline", "graph", "ablation", "narrate", "all")
 
@@ -266,8 +269,60 @@ def stage_ablation(df: pd.DataFrame | None = None) -> None:
 
 
 def stage_narrate(df: pd.DataFrame | None = None) -> None:
-    banner("STAGE: narrate")
-    print("Not yet implemented (Phase 6).")
+    banner("STAGE: narrate (LLM writes about already-flagged clusters)")
+    df = df if df is not None else load_merged()
+    if UID_COL not in df.columns:
+        df = df.copy()
+        df[UID_COL] = build_uid(df)
+
+    train, test = temporal_split(df)
+    _, test, _ = build_features_for_split(train, test)
+    test = add_time_features(test)
+
+    score_path = CACHE_DIR / "scores_graph_full.npy"
+    if not score_path.exists():
+        print("No graph-augmented scores cached. Run: python run.py --stage ablation")
+        return
+    scores = np.load(score_path)
+
+    report = evaluate(
+        "graph-augmented", test[TARGET].values, scores, test["TransactionAmt"].values
+    )
+    threshold = report.constrained_operating_point.threshold
+    print(f"using the insult-constrained threshold: {threshold:.4f}")
+
+    evidence_items = build_cluster_evidence(test, scores, threshold)
+    print(f"deterministic engine flagged {len(evidence_items)} multi-entity clusters\n")
+
+    if not evidence_items:
+        print("no clusters met the criteria")
+        return
+
+    narratives = narrate_all(evidence_items)
+
+    unavailable_count = 0
+    for evidence, narrative in zip(evidence_items, narratives):
+        print(f"--- cluster {evidence.cluster_id} ---")
+        print(
+            f"  entities={evidence.entity_count} transactions={evidence.transaction_count} "
+            f"flagged={evidence.flagged_transaction_count} core={evidence.core_number} "
+            f"span={evidence.span_days}d"
+        )
+        print(f"  shared: {', '.join(evidence.shared_attributes)}")
+        print(f"  max_risk={evidence.max_risk_score:.4f} (computed by core/, not the LLM)")
+        if narrative.status != "OK":
+            unavailable_count += 1
+            print(f"  NARRATIVE_UNAVAILABLE -- {narrative.rejection_reason}")
+        else:
+            print(f"  cause: {narrative.probable_cause}  confidence: {narrative.confidence}")
+            print(f"  summary: {narrative.human_summary}")
+            print(f"  action:  {narrative.suggested_action}")
+        print()
+
+    print(
+        f"{len(narratives) - unavailable_count}/{len(narratives)} narratives validated; "
+        f"{unavailable_count} fell back to NARRATIVE_UNAVAILABLE."
+    )
 
 
 def main() -> int:
