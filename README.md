@@ -27,6 +27,38 @@ each transaction independently and never sees that forty of them share a fingerp
 RingWatch adds a classical graph layer over an entity graph to surface that coordination,
 and — critically — measures honestly whether doing so actually helps.
 
+## Why the evaluation harness is the deliverable
+
+Razorpay's engineering team published a detailed writeup of their Oncall Agent, **Project
+Viveka** — a multi-agent system that investigates production incidents and takes what was
+a roughly 30-minute manual investigation down to about 90 seconds. It is a genuinely
+impressive piece of engineering, and the writeup is unusually candid about its own
+maturity: the system runs in shadow mode, is validated through informal feedback in Slack
+threads, and works toward an accuracy target that is aspirational rather than measured.
+Razorpay stated all of that openly. It is an open question they raised themselves, and
+one that anyone who has shipped an AI system into production has run into.
+
+That candour is what makes the buildathon brief's thesis land: **verification capacity,
+not generation speed, is the bottleneck** in AI-native financial systems. RingWatch takes
+that seriously as a working discipline rather than a slogan, and it is the reason this
+project's centre of gravity is the evaluation harness rather than the model. Concretely:
+
+- **AUC-PR instead of accuracy**, because at a 3.44% positive class a model that never
+  predicts fraud scores 96.5% and catches nothing.
+- **Bootstrap confidence intervals instead of raw deltas**, because a single-run
+  difference of 0.002 is a number, not a result.
+- **An honest negative finding as the headline** — the graph layer, which is the most
+  interesting thing I built, does not work — rather than an inconvenience tuned away
+  until the metrics agreed with the hypothesis.
+- **An explicit register of what is and isn't validated**, including a deliberate refusal
+  to make any calibration claim about the language model's own `confidence` field, which
+  this data cannot support (see [Calibration](#calibration-are-the-probabilities-trustworthy)).
+
+RingWatch does not claim to have solved evaluation for production incident-response AI.
+That is a substantially harder problem than fraud-ring detection — incidents are rarer,
+far more heterogeneous, and lack the clean labels a fraud dataset hands you. This is an
+attempt to hold a smaller, more tractable problem to the standard Razorpay named.
+
 ## Headline result — including the part that didn't work
 
 RingWatch set out to show that a classical graph layer improves fraud detection. **It
