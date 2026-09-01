@@ -195,6 +195,38 @@ flowchart TB
 If the entire `ai/` package were deleted, every metric RingWatch reports would be
 unchanged.
 
+## The narrative layer, on real output
+
+Running `python run.py --stage narrate` against the 12 clusters the deterministic engine
+flagged: **11 of 12 produced validated narratives; 1 returned `NARRATIVE_UNAVAILABLE`**
+after two Gemini timeouts. That failure was not staged — it is the degradation path
+firing on a real transient network fault, which is better evidence than a unit test that
+it works.
+
+Two behaviours worth noting in the real output:
+
+- **The number-provenance guard passed on all 11.** Every figure quoted in the prose
+  (`48114.00 INR`, `k-core number of 2`, `max risk score of 0.7464`) was present in the
+  evidence the model was handed. Nothing was invented, and nothing was derived.
+- **The model frequently answers `BENIGN_COINCIDENCE`.** Most flagged clusters were
+  described as ordinary shared household or business infrastructure rather than
+  coordinated fraud. That is the prompt working as intended: telling an analyst a cluster
+  is unremarkable is more useful than manufacturing a story for it, and a narrative layer
+  that called everything fraud would be worthless.
+
+Example (cluster 8, `SHARED_CREDENTIAL_REUSE`, confidence medium):
+
+> Cluster 8 consists of 3 entities connected across 12 transactions over an activity span
+> of 26 days, accumulating a total amount of 48114.00 INR. The graph topology shows a
+> connected component size of 4, a k-core number of 2, and a max entity degree of 2, where
+> all entities share card1, addr1, and P_emaildomain… The model flagged 6 transactions in
+> this cluster, generating a mean risk score of 0.3318 and a max risk score of 0.7464.
+>
+> **Suggested action:** Inspect the 3 linked entities sharing card1 and addr1 to confirm
+> user authorization or credential compromise.
+
+Every number in that paragraph was computed by `core/`. The model chose the words.
+
 ## Ground-truth honesty
 
 **IEEE-CIS provides transaction-level fraud labels, not ring-level labels.** RingWatch

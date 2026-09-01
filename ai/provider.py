@@ -40,7 +40,7 @@ CACHE_DIR = REPO_ROOT / "data" / "cache" / "llm"
 REQUEST_TIMEOUT_SECONDS = 45
 MAX_ATTEMPTS_PER_PROVIDER = 2  # the initial call plus one retry
 
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.6-flash"
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )

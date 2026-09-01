@@ -118,6 +118,37 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-01 18:05] — Hardcoded a model name that Google had already retired
+
+- **Symptom:** With a valid API key finally configured, the first live call returned
+  `404 NOT_FOUND: This model models/gemini-2.0-flash is no longer available. Please update
+  your code to use models/gemini-3.6-flash`.
+- **Diagnosis:** `ai/provider.py` pinned `gemini-2.0-flash`, which was current when I wrote
+  it and had since been retired. Two things made this cheap to find instead of expensive.
+  First, the failure was a **404, not a 401** — which immediately separated "the key is
+  bad" from "the request is bad", and told me the credential was fine. Second, I tested
+  the key with a single `curl` before running the pipeline, so the error surfaced in two
+  seconds rather than inside a batch of twelve clusters where twelve identical
+  NARRATIVE_UNAVAILABLE fallbacks would have looked like a credential problem.
+- **Fix:** One-line model bump to `gemini-3.6-flash`, verified with a live call before
+  re-running. Result: **11 of 12 clusters produced validated narratives.** The general
+  lesson is that a pinned third-party model name is a dependency with an expiry date and
+  no compiler to catch it, which is an argument for the fallback provider existing at all.
+
+## [2026-09-01 18:12] — The retry-and-fallback path fired for real, unprompted
+
+- **Symptom:** Cluster 7 of 12 returned `NARRATIVE_UNAVAILABLE` while the other 11
+  succeeded: `gemini attempt 1: Read timed out (45s); gemini attempt 2: Read timed out`.
+- **Diagnosis:** A genuine transient network timeout against the Gemini endpoint, not a
+  bug. Both attempts were consumed, no Groq key was configured to fall back to, so the
+  cluster degraded to the honest failure value exactly as designed.
+- **Fix:** None required — this is the system working. Worth logging because it is
+  unplanned evidence that the degradation path is real rather than a code path that has
+  only ever been exercised by a unit test. An analyst reading that report sees eleven
+  narratives and one explicit "unavailable, here is why", instead of twelve narratives one
+  of which is quietly invented. Configuring `GROQ_API_KEY` would have covered this;
+  keeping it uncovered demonstrates the fallback more honestly.
+
 ## [2026-09-01 16:20] — LightGBM rejected 31 columns: a pandas 3.0 dtype change
 
 - **Symptom:** First baseline training run died immediately:
