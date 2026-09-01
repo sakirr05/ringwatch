@@ -7,15 +7,36 @@ estimates below are against ~16–18h of real build time.
 
 ---
 
-## Core claim (what this submission argues)
+## Core claim — REVISED after Phase 5 measured it
+
+> **Revision, 2026-09-01 17:40.** The original claim below assumed the graph layer would
+> produce a measured PR-AUC lift. It does not. The ablation found no significant lift,
+> and k-core significantly *hurts* (95% CI excludes zero). The claim has been retargeted
+> to what the evidence supports rather than the code tuned until the evidence agreed.
+> Full reasoning in `FAILURE_LOG.md`, entry 17:40.
+
+**Original claim (superseded):** ~~a classical graph layer that surfaces collusion
+structure, measured through an ablation showing PR-AUC lift, plus one case where it
+hurts.~~
+
+**Revised claim (what the measurements actually support):**
 
 A deterministic fraud classifier, honestly evaluated with AUC-PR and false-positive
-"insult-rate" costing, plus a **classical graph layer** (connected components + k-core
-decomposition over an entity graph) that surfaces collusion structure a row-by-row
-classifier structurally cannot see. The lift is measured through an honest ablation that
-includes at least one case where the graph layer makes things **worse**. An LLM writes
-analyst-facing narratives for already-flagged clusters and is never allowed near the
-score, the flag, or any number it wasn't handed.
+"insult-rate" costing, plus a **classical graph layer** whose contribution is stated
+honestly in two parts:
+
+1. **What it does:** fraud concentrates in the entity graph far beyond chance
+   (z = +8.8 vs a label-permutation null, stable across hub caps), and the graph surfaces
+   statistically anomalous clusters for analyst review, which is what feeds the narrative
+   layer.
+2. **What it does NOT do:** improve dataset-wide prediction. No variant beats the tabular
+   baseline; k-core is significantly worse. Reported with bootstrap CIs, up front.
+
+Rare structure is real structure and still cannot move an average. Both statements are
+true, and reporting only the first would have been the dishonest submission.
+
+An LLM writes analyst-facing narratives for already-flagged clusters and is never allowed
+near the score, the flag, or any number it wasn't handed.
 
 ## Guiding constraints (locked, not revisited)
 

@@ -74,7 +74,7 @@ Show the percolation table in the module docstring.
 > one giant hairball where 'component' stops meaning 'candidate ring.' The cap sits just
 > below the transition."
 
-## 2:15–3:15 · Live run and the measured metrics
+## 2:15–3:15 · Live run and the ring evidence
 
 Run on camera:
 
@@ -98,22 +98,53 @@ Point at the ring-concentration test output.
 > Against a label-permutation null: twelve all-fraud components observed, 1.4 expected.
 > That's **z = +8.8**, and it's stable across every hub cap I tried."
 
-Then the ablation table.
+## 3:15–4:15 · The result that didn't work
 
-> "And here's what that buys, honestly reported: [state the actual measured lift]. Small —
-> because rings this rare can only move a dataset-wide metric a little. A large lift here
-> would have been evidence of a bug, not of success."
+**This is the section judges will remember. Do not skip it, soften it, or bury it later.**
 
-## 3:15–4:05 · The edge case, handled honestly
+Show the ablation table with the bootstrap CIs.
 
-**This is the section judges remember. Do not skip it or soften it.**
+> "And here is where the project failed. I built this graph layer to improve fraud
+> detection. Measured honestly, it does not."
 
-Show the `HONEST NEGATIVE CASE` block from the ablation output.
+| variant | AUC-PR | Δ | 95% CI |
+|---|---|---|---|
+| tabular only | 0.5188 | — | — |
+| + components | 0.5176 | −0.0011 | not significant |
+| + k-core | 0.5123 | −0.0064 | **significantly worse** |
+| + full graph | 0.5168 | −0.0020 | not significant |
 
-> "The track asks for honest metrics, so here's where my own system makes things worse.
-> These are *legitimate* transactions that the graph layer pushed toward being declined —
-> real customers who'd be insulted because they happen to sit in a dense component. A
-> high-volume account that looks ring-like from the topology alone."
+> "My first instinct was that a two-thousandths delta is noise, and I could call the layer
+> 'roughly neutral' and move on. Catching that instinct is the most important thing I did
+> on this project. A raw delta from a single run isn't a result — so I ran a paired
+> bootstrap, four hundred resamples, both models scored on identical rows.
+>
+> It showed 'roughly neutral' was wrong in *both* directions. Two variants are genuinely
+> indistinguishable from baseline. And k-core isn't noise at all — its confidence interval
+> excludes zero. It's significantly **worse**."
+
+> "The reason is coverage, not a bug. The graph reaches 5.4% of test rows, and the rings
+> are real but rare — twelve of them. Twelve rings can't move a metric averaged over
+> 118,000 transactions when the model already has 433 features. On the linked rows alone
+> the estimate does turn positive, +0.017 — but that interval spans zero too. 136 fraud
+> cases can't resolve an effect that small, so I report it as a hypothesis, not a result."
+
+> "So I retargeted the claim instead of tuning the code. The graph does one thing well —
+> it surfaces anomalous clusters for an analyst, which is what feeds the narrative layer —
+> and it does not improve prediction. Both of those are in the README, in that order."
+
+Say this part explicitly:
+
+> "The obvious alternative was to keep trying link keys and caps until something beat
+> baseline. With enough configurations, one of them would have, by chance. That's
+> p-hacking, and I couldn't have honestly answered 'how many variants did you try?' in
+> this interview. So I didn't."
+
+Then show the `HONEST NEGATIVE CASE` block.
+
+> "And at the row level: these are *legitimate* transactions the graph pushed toward being
+> declined — real customers who'd be insulted because they happen to sit in a dense
+> component."
 
 Then the two operating points:
 
@@ -131,7 +162,7 @@ Show `FAILURE_LOG.md`, scroll through the pivot entry.
 > matcher against it. A closed loop that proves nothing. That's entry one in the failure
 > log, and the code is still in the repo under legacy/."
 
-## 4:05–4:45 · Ground-truth honesty and limitations
+## 4:15–4:45 · Ground-truth honesty and limitations
 
 > "The claim I am **not** making: RingWatch does not report 'N rings caught.' IEEE-CIS has
 > transaction-level fraud labels, not ring labels. There is no ground truth to validate a
