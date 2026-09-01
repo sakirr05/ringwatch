@@ -192,8 +192,9 @@ flowchart TB
    arithmetic the model performed itself — is rejected. Two failures and the cluster gets
    `NARRATIVE_UNAVAILABLE` rather than a guess.
 
-If the entire `ai/` package were deleted, every metric RingWatch reports would be
-unchanged.
+No number RingWatch reports is produced, computed, or altered by the language model — the
+AI layer only writes prose about numbers `core/` already finalized, and this boundary is
+enforced by a test that walks the import graph, not by a comment asking nicely.
 
 ## The narrative layer, on real output
 

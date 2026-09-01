@@ -12,10 +12,15 @@ buys more signal per watt here.
 
 DETERMINISM
 -----------
-Fixed seed, single-threaded feature bagging disabled, and `deterministic=True`. Two runs
-on the same data produce byte-identical predictions, which the tests assert. This matters
-because the whole submission rests on an ablation: if the model were nondeterministic, a
-measured 'lift' could be run-to-run noise.
+Fixed seed and `deterministic=True`, paired with `force_row_wise=True` because LightGBM's
+deterministic mode only holds when one of the force_* options is set. Two runs on the same
+data produce byte-identical predictions, asserted by `tests/test_model.py`
+(`test_training_is_deterministic`, with `test_predictions_are_not_constant` to stop that
+passing vacuously on a degenerate single-leaf model).
+
+This matters because the whole submission rests on an ablation of small differences: if
+the model were nondeterministic, the measured -0.0064 for k-core could be nothing more
+than two different runs of the same configuration.
 """
 
 from __future__ import annotations
