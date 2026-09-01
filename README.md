@@ -307,6 +307,73 @@ would be inventing data. An unpriced cost reads to an optimiser as a free one.
 So both are reported. The gap between them *is* the honest statement of what the missing
 cost is doing, and every insult figure here is an **underestimate**.
 
+## Calibration: are the probabilities trustworthy?
+
+AUC-PR answers "does the model rank fraud above legitimate traffic?" — and it is invariant
+to any monotonic rescaling of the scores, so a model can rank perfectly while its outputs
+are meaningless as probabilities. That distinction is not academic here: the operating
+threshold above is chosen by **minimising expected rupee cost**, and that arithmetic reads
+each score as a probability. If the probabilities are wrong, the threshold is being placed
+by a calculation resting on a number that does not mean what it says.
+
+So it is measured (`python run.py --stage calibration`, reusing cached scores):
+
+| model | Brier score | ECE | worst bin deviation |
+|---|---|---|---|
+| tabular only | 0.022686 | 0.010536 | 0.041069 |
+| + full graph | 0.022723 | 0.010487 | 0.041874 |
+
+![Reliability diagram: every point sits above the diagonal](docs/reliability.png)
+
+**How to read the Brier score:** it conflates calibration with discrimination/refinement,
+so it should not be read as a pure calibration metric on its own (per scikit-learn's
+documentation) — a model can improve its Brier score purely by separating the classes
+better, without becoming any better calibrated. **ECE** is reported alongside it because it
+measures only the vertical distance from the diagonal, which is the quantity actually in
+question here. Both are computed over 10 **quantile** bins rather than equal-width bins: at
+a 3.44% positive rate the scores pile up near zero, and equal-width bins would put almost
+every row in the first bin.
+
+**The finding: the model is systematically under-confident.** In *every one* of the ten
+bins, for both variants, the observed fraud rate exceeds the predicted probability — a bin
+scoring 0.0178 contains 4.09% real fraud, and one scoring 0.0055 contains 1.40%. The
+direction is consistent across three orders of magnitude, so this is bias, not noise.
+
+That matters because it feeds directly back into the threshold discussion above. A model
+whose probabilities are uniformly too low will have its cost-minimising threshold placed
+too low as well, which is part of why operating point [A] declines an unshippable 5.047%
+of legitimate traffic. The two findings are the same phenomenon seen from different angles.
+Calibrating the scores (Platt scaling or isotonic regression on a held-out slice) is the
+obvious next step and is **not** done here — it is listed in Limitations rather than
+quietly implied.
+
+On the graph layer: ECE 0.010536 → 0.010487 and Brier 0.022686 → 0.022723. As everywhere
+else in this project, the graph features change nothing meaningful.
+
+### Why the LLM's `confidence` field is left unvalidated
+
+Each narrative carries a `confidence` of high/medium/low, and RingWatch makes **no claim
+whatsoever** about whether that field is accurate. This is a deliberate refusal, not an
+oversight.
+
+Validating it would require knowing which flagged clusters are genuinely fraud rings. The
+deterministic engine flags **12 clusters**, and IEEE-CIS has no ring-level ground truth to
+check them against. Twelve observations cannot support a calibration claim about a
+three-level field under any statistical standard — the confidence intervals would be wider
+than the scale itself.
+
+The only ways to manufacture a number would be to grade the LLM's confidence against the
+transaction labels, or against the model's own risk score. Both are circular: the second
+grades the narrative layer against the very engine that produced its input, and the first
+substitutes a different question (is this transaction fraud?) for the one being asked (is
+this cluster a ring?). Either would produce a confident-looking metric that means nothing.
+
+That failure mode is precisely why the predecessor to this project was abandoned.
+LedgerLoop authored its own synthetic data, injected its own breaks, and graded its own
+matcher against ground truth it had also written — a closed loop that could only ever
+confirm itself. Reporting an LLM confidence calibration here would be the same mistake in
+a new costume. See `FAILURE_LOG.md`, entry 14:52.
+
 ## Limitations
 
 Written as they are discovered, not reconstructed at the end.
@@ -341,9 +408,15 @@ Written as they are discovered, not reconstructed at the end.
 - **Cost assumptions are assumptions.** Margin rate, chargeback fee and FX are declared
   constants a reviewer can disagree with and re-run. Churn cost is unpriced entirely,
   which makes every insult cost an underestimate.
-- **`confidence` in the LLM output is unvalidated.** The field exists and is
-  schema-checked, but nothing here measures how often "high" is actually right — that
-  would need the grading layer this build did not have time for.
+- **`confidence` in the LLM output is unvalidated, deliberately.** The field is
+  schema-checked but nothing measures how often "high" is right, and with 12 flagged
+  clusters and no ring-level ground truth, nothing here could. See
+  [Why the LLM's `confidence` field is left unvalidated](#why-the-llms-confidence-field-is-left-unvalidated).
+- **The classifier's probabilities are systematically under-confident** and are not
+  recalibrated. Observed fraud exceeds predicted probability in every bin, which biases
+  the cost-minimising threshold downward. Platt scaling or isotonic regression on a
+  held-out slice is the obvious fix and is not implemented. See
+  [Calibration](#calibration-are-the-probabilities-trustworthy).
 
 ## Deployment
 

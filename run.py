@@ -4,6 +4,7 @@
     python run.py --stage baseline   # train + evaluate the tabular-only model
     python run.py --stage graph      # build the entity graph, print its statistics
     python run.py --stage ablation   # baseline vs graph-augmented, the honest comparison
+    python run.py --stage calibration # are the predicted probabilities trustworthy?
     python run.py --stage narrate    # LLM narratives for flagged clusters
     python run.py --stage all
 
@@ -37,6 +38,7 @@ from core.graph import (
     graph_features,
     graph_summary,
 )
+from core.calibration import calibration_report
 from core.clusters import build_cluster_evidence
 from core.model import train_model
 from core.ring_evidence import ring_concentration_test
@@ -44,7 +46,7 @@ from core.split import split_summary, temporal_split
 
 from ai.narrate import narrate_all
 
-STAGES = ("data", "baseline", "graph", "ablation", "narrate", "all")
+STAGES = ("data", "baseline", "graph", "ablation", "calibration", "narrate", "all")
 
 
 def banner(text: str) -> None:
@@ -353,6 +355,42 @@ def stage_ablation(df: pd.DataFrame | None = None) -> None:
     )
 
 
+def stage_calibration(df: pd.DataFrame | None = None) -> None:
+    """Are the predicted probabilities trustworthy AS probabilities?
+
+    Separate question from AUC-PR, which is invariant to any monotonic rescaling of the
+    scores. It matters here because the operating threshold is chosen by minimising
+    expected rupee cost, and that arithmetic reads the score as a probability.
+
+    Reuses cached scores -- no retraining.
+    """
+    banner("STAGE: calibration")
+    df = df if df is not None else load_merged()
+    _, test = temporal_split(df)
+    y_true = test[TARGET].to_numpy()
+
+    variants = [("baseline", "tabular only"), ("graph_full", "+ full graph")]
+    missing = [
+        key for key, _ in variants if not (CACHE_DIR / f"scores_{key}.npy").exists()
+    ]
+    if missing:
+        print(f"No cached scores for {missing}. Run: python run.py --stage ablation")
+        return
+
+    for key, label in variants:
+        scores = np.load(CACHE_DIR / f"scores_{key}.npy")
+        report = calibration_report(label, y_true, scores)
+        for line in report.summary_lines():
+            print(line)
+        print()
+
+    print(
+        "  Reading these numbers: the Brier score conflates calibration with\n"
+        "  discrimination/refinement, so it is not a pure calibration metric on its own.\n"
+        "  ECE is the number that measures only distance from the diagonal."
+    )
+
+
 def stage_narrate(df: pd.DataFrame | None = None) -> None:
     banner("STAGE: narrate (LLM writes about already-flagged clusters)")
     df = df if df is not None else load_merged()
@@ -441,6 +479,8 @@ def main() -> int:
         stage_graph()
     elif args.stage == "ablation":
         stage_ablation()
+    elif args.stage == "calibration":
+        stage_calibration()
     elif args.stage == "narrate":
         stage_narrate()
     else:
@@ -448,6 +488,7 @@ def main() -> int:
         stage_baseline(df)
         stage_graph(df)
         stage_ablation(df)
+        stage_calibration(df)
         stage_narrate(df)
     return 0
 
