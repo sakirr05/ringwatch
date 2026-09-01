@@ -47,7 +47,10 @@ def _downcast(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = df[col].astype(np.float32)
         elif pd.api.types.is_integer_dtype(dtype):
             df[col] = pd.to_numeric(df[col], downcast="integer")
-        elif dtype == object:
+        elif dtype == object or pd.api.types.is_string_dtype(dtype):
+            # pandas 3.0 stores text as the new `str` dtype rather than `object`, so an
+            # `== object` check alone silently misses every categorical column and hands
+            # LightGBM a dtype it refuses. See FAILURE_LOG.md.
             df[col] = df[col].astype("category")
     return df
 

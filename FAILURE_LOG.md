@@ -49,6 +49,42 @@ Format: `## [timestamp] — Symptom / Diagnosis / Fix`
   engineered features and a reduced column set, which would both contaminate the ablation
   and mean I hadn't built the feature layer myself.
 
+## [2026-09-01 16:20] — LightGBM rejected 31 columns: a pandas 3.0 dtype change
+
+- **Symptom:** First baseline training run died immediately:
+  `ValueError: pandas dtypes must be int, float or bool. Fields with bad pandas dtypes:
+  ProductCD: str, card4: str, ... DeviceInfo: str` — 31 columns.
+- **Diagnosis:** My `_downcast()` converted text columns to `category` with a
+  `dtype == object` test. That is the correct idiom for pandas 1.x/2.x, but **pandas 3.0
+  stores text in a dedicated `str` dtype, not `object`**, so the branch never fired. Every
+  categorical column stayed as strings, survived the Parquet round-trip as strings, and
+  LightGBM — which accepts `category` natively but not raw strings — refused them. The
+  failure was loud and immediate, but the *cause* was three layers away from the error
+  message, in an ingest function that looked obviously correct.
+- **Fix:** Widened the branch to `dtype == object or pd.api.types.is_string_dtype(dtype)`,
+  deleted the poisoned Parquet cache and rebuilt. 31 category columns now convert, and
+  memory dropped from 1,126 MB to 969 MB as a side benefit. Worth noting the categorical
+  conversion happens **before** the temporal split on purpose: converting train and test
+  separately would give them different category codes for the same string, which LightGBM
+  would silently treat as different values — a much quieter bug than this one.
+
+## [2026-09-01 16:35] — The cost-optimal threshold was operationally unshippable
+
+- **Symptom:** Not a crash. The threshold that minimises expected rupee cost declined
+  **5.047% of all legitimate traffic** (5,756 customers) to catch 63% of fraud. The
+  arithmetic was right and the result was useless.
+- **Diagnosis:** My cost model prices a missed fraud at the full transaction value plus a
+  ₹1,200 chargeback fee, but prices a false positive at only 12% gross margin. Under those
+  weights the optimiser correctly concludes it should decline aggressively. The flaw is
+  that the model deliberately does *not* monetise the lifetime-value damage of insulting a
+  good customer — I left it out because putting a number on churn would be inventing data —
+  and an unpriced cost is treated by an optimiser as a zero cost.
+- **Fix:** Report **two** operating points rather than quietly picking one: [A] the
+  cost-minimising threshold, and [B] an insult-constrained threshold capped at 1% of
+  legitimate traffic, which is what a payments team could actually deploy. The gap between
+  them is the honest statement of what the unpriced churn cost is doing. Keeping only [A]
+  would have looked better on a slide and been wrong.
+
 ## [2026-09-01 15:10] — Python 3.14 could have had no ML wheels
 
 - **Symptom:** Environment is Python 3.14.6, which is very new. LightGBM/XGBoost wheel
