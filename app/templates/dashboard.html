@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RingWatch — graph-aware fraud ring detection</title>
+<style>
+:root {
+  --ink: #1a1a1a;
+  --muted: #5c5c5c;
+  --faint: #8a8a8a;
+  --rule: #d8d5cf;
+  --bg: #fbfaf8;
+  --panel: #ffffff;
+  --det: #2d6a4f;       /* deterministic / core */
+  --det-bg: #edf5ef;
+  --ai: #3d5a99;        /* narrative / LLM */
+  --ai-bg: #eef1f9;
+  --warn: #a33a2a;
+  --warn-bg: #f9eeeb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8e6e2; --muted: #a8a49e; --faint: #7d7a75; --rule: #35322e;
+    --bg: #16150f; --panel: #1d1c17;
+    --det: #7fc79b; --det-bg: #1b2b22;
+    --ai: #9db2e0; --ai-bg: #1a2030;
+    --warn: #e08d7c; --warn-bg: #2e1e1a;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 860px; margin: 0 auto; padding: 3.5rem 1.5rem 6rem; }
+h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 .4rem; letter-spacing: -.02em; }
+h2 {
+  font-size: 1.15rem; margin: 3.5rem 0 .3rem; letter-spacing: -.01em;
+  padding-top: 1.6rem; border-top: 1px solid var(--rule);
+}
+h3 { font-size: .95rem; margin: 1.8rem 0 .5rem; }
+p { margin: .7rem 0; }
+.sub { color: var(--muted); font-size: .95rem; margin-top: 0; }
+.lede { font-size: 1.02rem; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+a { color: var(--det); }
+
+.meta {
+  font-size: .8rem; color: var(--faint); margin-top: 1.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.tag {
+  display: inline-block; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase;
+  padding: .16rem .45rem; border-radius: 3px; font-weight: 600; vertical-align: 1px;
+}
+.tag-det { background: var(--det-bg); color: var(--det); }
+.tag-ai  { background: var(--ai-bg);  color: var(--ai); }
+.tag-warn{ background: var(--warn-bg);color: var(--warn); }
+
+table { width: 100%; border-collapse: collapse; margin: 1.1rem 0; font-size: .9rem; }
+th, td { text-align: right; padding: .5rem .55rem; border-bottom: 1px solid var(--rule); }
+th:first-child, td:first-child { text-align: left; }
+thead th {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--faint); font-weight: 600; border-bottom: 1.5px solid var(--rule);
+}
+td.num, th.num { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+tr.is-baseline td { font-weight: 600; }
+tr.is-worse td { color: var(--warn); }
+
+.callout {
+  border-left: 3px solid var(--det); background: var(--panel);
+  padding: .9rem 1.1rem; margin: 1.3rem 0; font-size: .93rem;
+}
+.callout-warn { border-left-color: var(--warn); }
+.callout h4 { margin: 0 0 .35rem; font-size: .9rem; }
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; margin: 1.2rem 0; }
+@media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+.panel { background: var(--panel); border: 1px solid var(--rule); padding: 1rem 1.1rem; }
+.panel h4 { margin: 0 0 .2rem; font-size: .82rem; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--faint); }
+.big { font-size: 1.75rem; font-weight: 600; letter-spacing: -.02em; line-height: 1.15;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.big small { font-size: .8rem; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+
+figure { margin: 1.3rem 0; }
+figure img { width: 100%; border: 1px solid var(--rule); background: #fff; }
+figcaption { font-size: .82rem; color: var(--muted); margin-top: .5rem; }
+
+.cluster { border: 1px solid var(--rule); background: var(--panel); margin: .9rem 0; }
+.cluster > summary {
+  cursor: pointer; padding: .7rem .9rem; font-size: .9rem;
+  display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap;
+}
+.cluster > summary::-webkit-details-marker { display: none; }
+.cluster > summary:hover { background: var(--det-bg); }
+.cluster .cid { font-weight: 600; font-family: ui-monospace, monospace; }
+.cluster .gist { color: var(--muted); font-size: .85rem; }
+.cbody { padding: 0 .9rem 1rem; }
+.prov {
+  border-left: 3px solid var(--det); background: var(--det-bg);
+  padding: .55rem .8rem; margin: .7rem 0; font-size: .85rem;
+}
+.prov.ai { border-left-color: var(--ai); background: var(--ai-bg); }
+.prov dl { margin: .4rem 0 0; display: grid; grid-template-columns: auto 1fr;
+  gap: .15rem .8rem; font-size: .84rem; }
+.prov dt { color: var(--muted); }
+.prov dd { margin: 0; font-family: ui-monospace, monospace; }
+.overflow { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>RingWatch</h1>
+  <p class="sub">Graph-aware fraud ring detection with a code-enforced AI/determinism
+  boundary. Razorpay AI Buildathon 2026, Track 02.</p>
+
+  <div class="callout">
+    <h4>Detection-only</h4>
+    This system detects and analyses. It does not generate, simulate or optimise
+    adversarial or evasive transactions, and contains no capability to do so.
+  </div>
+
+  <p class="lede">Everything on this page was computed offline and frozen into a committed
+  artifact. <strong>This server renders numbers; it never produces them.</strong> No page
+  load trains a model, scores a transaction, or recomputes a metric — the same boundary the
+  project enforces around its language model, applied to its web layer.</p>
+
+  <p class="meta">
+    results commit <strong>{{ r.meta.git_commit }}</strong> ·
+    generated {{ r.meta.generated_at }} ·
+    <a href="/api/results">raw JSON</a>
+  </p>
+
+
+  <!-- 1 ─────────────────────────────────────────────────────────── -->
+  <h2>1. Headline result: the graph layer does not work</h2>
+  <p class="sub">This is the finding, not a footnote.</p>
+
+  <p>RingWatch was built to show that a classical graph layer improves fraud detection.
+  Measured honestly on a temporally held-out test set, it does not. Confidence intervals
+  are a paired bootstrap over {{ dataset.test_rows | int }} test rows — both models scored
+  on identical resampled indices, so the comparison is not inflated by test-set variation
+  affecting them equally.</p>
+
+  <div class="overflow">
+  <table>
+    <thead>
+      <tr><th>variant</th><th class="num">AUC-PR</th><th class="num">Δ vs baseline</th>
+          <th class="num">95% CI</th><th>verdict</th></tr>
+    </thead>
+    <tbody>
+    {% for row in ablation %}
+      <tr class="{% if row.key == 'baseline' %}is-baseline{% endif %}{% if row.significant and row.delta < 0 %} is-worse{% endif %}">
+        <td>{{ row.label }}</td>
+        <td class="num">{{ "%.4f"|format(row.auc_pr) }}</td>
+        <td class="num">{% if row.delta is not none %}{{ "%+.4f"|format(row.delta) }}{% else %}—{% endif %}</td>
+        <td class="num">{% if row.ci_low is not none %}[{{ "%+.4f"|format(row.ci_low) }}, {{ "%+.4f"|format(row.ci_high) }}]{% else %}—{% endif %}</td>
+        <td>{% if row.key == 'baseline' %}<span class="tag tag-det">baseline</span>
+            {% elif row.significant %}<span class="tag tag-warn">significantly worse</span>
+            {% else %}not significant{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <p>No graph variant beats the baseline. <code>+ k-core</code> is not merely neutral — its
+  interval excludes zero, so it is <strong>measurably harmful</strong>. It is kept in the
+  repository and reported as the measured harm case rather than quietly deleted, but is
+  excluded from the recommended configuration.</p>
+
+  <p class="sub">A baseline AUC-PR of {{ "%.4f"|format(baseline.auc_pr) }} against a
+  prevalence floor of {{ "%.4f"|format(dataset.test_fraud_rate) }} is a
+  {{ "%.1f"|format(baseline.lift_over_random) }}× lift over random. The graph adds nothing
+  to it.</p>
+
+  <figure>
+    <img src="/static/pr_curve.png" alt="Precision-recall curves for all four variants, overlapping almost exactly">
+    <figcaption>The four curves are indistinguishable by eye. That is the honest picture of
+    this result.</figcaption>
+  </figure>
+
+
+  <!-- 2 ─────────────────────────────────────────────────────────── -->
+  <h2>2. The reconciliation</h2>
+  <p class="sub">Real structure, too rare to move an average. Both things are true.</p>
+
+  <div class="cols">
+    <div class="panel">
+      <h4>Ring structure is real</h4>
+      <div class="big">z = {{ "%+.1f"|format(ring.z_score) }}</div>
+      <p class="sub" style="margin-bottom:0">
+        {{ ring.all_fraud_components }} entirely-fraudulent components observed against
+        {{ "%.1f"|format(ring.null_mean) }} ± {{ "%.1f"|format(ring.null_std) }} expected
+        under a label-permutation null, across {{ ring.components }} components.
+      </p>
+    </div>
+    <div class="panel">
+      <h4>But it reaches almost nothing</h4>
+      <div class="big">{{ "%.2f"|format(graph.test_rows_linked_pct) }}%<small> of test rows</small></div>
+      <p class="sub" style="margin-bottom:0">
+        Only {{ graph.test_rows_linked }} of {{ dataset.test_rows }} transactions have an
+        entity linked in the graph, at hub-suppression cap {{ graph.hub_cap }}.
+      </p>
+    </div>
+  </div>
+
+  <p>Those two numbers side by side <em>are</em> the argument. Fraud genuinely clusters far
+  beyond chance — but {{ ring.all_fraud_components }} rings cannot move a metric averaged
+  over {{ dataset.test_rows }} transactions when the model already has 433 features.
+  Rare structure is real structure, and it still cannot shift an average.</p>
+
+  <p class="sub"><strong>What this does not license:</strong> IEEE-CIS has transaction-level
+  fraud labels, not ring labels. RingWatch never claims “N rings caught” — those
+  {{ ring.all_fraud_components }} components are statistically anomalous clusters, not
+  verified rings.</p>
+
+
+  <!-- 3 ─────────────────────────────────────────────────────────── -->
+  <h2>3. Operating points</h2>
+  <p class="sub">A threshold-free metric still has to become a decision.</p>
+
+  <div class="cols">
+    <div class="panel">
+      <h4>[A] cost-minimising</h4>
+      <div class="big">{{ "%.2f"|format(ops.cost_minimising.insult_rate * 100) }}%<small> of legitimate traffic declined</small></div>
+      <dl class="prov" style="border-left-color:var(--warn);background:var(--warn-bg)">
+        <dt>threshold</dt><dd>{{ "%.4f"|format(ops.cost_minimising.threshold) }}</dd>
+        <dt>precision</dt><dd>{{ "%.4f"|format(ops.cost_minimising.precision) }}</dd>
+        <dt>recall</dt><dd>{{ "%.4f"|format(ops.cost_minimising.recall) }}</dd>
+        <dt>customers declined</dt><dd>{{ ops.cost_minimising.false_positives }}</dd>
+        <dt>total cost</dt><dd>₹{{ ops.cost_minimising.total_cost_inr | inr }}</dd>
+      </dl>
+    </div>
+    <div class="panel">
+      <h4>[B] insult-constrained</h4>
+      <div class="big">{{ "%.2f"|format(ops.insult_constrained.insult_rate * 100) }}%<small> of legitimate traffic declined</small></div>
+      <dl class="prov">
+        <dt>threshold</dt><dd>{{ "%.4f"|format(ops.insult_constrained.threshold) }}</dd>
+        <dt>precision</dt><dd>{{ "%.4f"|format(ops.insult_constrained.precision) }}</dd>
+        <dt>recall</dt><dd>{{ "%.4f"|format(ops.insult_constrained.recall) }}</dd>
+        <dt>customers declined</dt><dd>{{ ops.insult_constrained.false_positives }}</dd>
+        <dt>total cost</dt><dd>₹{{ ops.insult_constrained.total_cost_inr | inr }}</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="callout callout-warn">
+    <h4>Why [A] is unshippable despite being “optimal”</h4>
+    No payments team declines {{ "%.2f"|format(ops.cost_minimising.insult_rate * 100) }}% of
+    legitimate traffic. The arithmetic is right; the cost model is incomplete. It prices a
+    missed fraud at full transaction value plus a ₹{{ assumptions.chargeback_fee_inr | inr }}
+    chargeback fee, but prices a false positive at only
+    {{ "%.0f"|format(assumptions.gross_margin_rate * 100) }}% gross margin — because the
+    lifetime-value damage of insulting a good customer is deliberately not monetised, as
+    putting a number on churn would be inventing data. <strong>An unpriced cost reads to an
+    optimiser as a free one.</strong> Both points are reported; the gap between them is the
+    honest statement of what is missing.
+  </div>
+
+
+  <!-- 4 ─────────────────────────────────────────────────────────── -->
+  <h2>4. Calibration</h2>
+  <p class="sub">Are the probabilities trustworthy <em>as probabilities</em>?</p>
+
+  <p>AUC-PR is invariant to any monotonic rescaling of the scores, so a model can rank
+  perfectly while its outputs mean nothing as probabilities. That matters here because the
+  operating threshold above is chosen by minimising expected rupee cost — arithmetic that
+  reads each score as a probability.</p>
+
+  <table>
+    <thead><tr><th>model</th><th class="num">Brier</th><th class="num">ECE</th>
+      <th class="num">worst bin</th></tr></thead>
+    <tbody>
+    {% for c in calibration %}
+      <tr>
+        <td>{{ c.label }}</td>
+        <td class="num">{{ "%.6f"|format(c.brier) }}</td>
+        <td class="num">{{ "%.6f"|format(c.ece) }}</td>
+        <td class="num">{{ "%.6f"|format(c.max_bin_error) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <h4>How to read the Brier score</h4>
+    It conflates calibration with discrimination/refinement, so it should not be read as a
+    pure calibration metric on its own — a model can improve it purely by separating classes
+    better without becoming better calibrated. <strong>ECE</strong> is shown alongside
+    because it measures only vertical distance from the diagonal. Both use
+    {{ calibration[0].n_bins }} {{ calibration[0].strategy }} bins, because at a
+    {{ "%.2f"|format(dataset.test_fraud_rate * 100) }}% positive rate equal-width bins would
+    put nearly every row in the first bin.
+  </div>
+
+  <figure>
+    <img src="/static/reliability.png" alt="Reliability diagram; every point sits above the diagonal">
+    <figcaption><strong>The finding: the model is systematically under-confident.</strong>
+    In every bin, for both variants, observed fraud exceeds the predicted probability —
+    consistent across three orders of magnitude, so bias rather than noise. Uniformly-low
+    probabilities push the cost-minimising threshold too low, which is part of why point [A]
+    declines an unshippable share of legitimate traffic. The two findings are one
+    phenomenon seen from different angles.</figcaption>
+  </figure>
+
+
+  <!-- 5 ─────────────────────────────────────────────────────────── -->
+  <h2>5. Flagged clusters</h2>
+  <p class="sub">
+    {{ clusters | length }} clusters ·
+    <span class="tag tag-det">computed by core/</span>
+    <span class="tag tag-ai">written by the LLM</span>
+  </p>
+
+  <p>The determinism boundary is this project's central design claim, so it is made legible
+  here rather than only asserted in a test. Every number below was produced by
+  deterministic code. The language model received those numbers as frozen evidence and
+  wrote prose about them — it never computed a score, set a flag, or selected a cluster.
+  Any figure in its output that was not in the evidence it was handed is rejected by a
+  provenance guard.</p>
+
+  {% for c in clusters %}
+  <details class="cluster">
+    <summary>
+      <span class="cid">cluster {{ c.evidence.cluster_id }}</span>
+      <span class="gist">{{ c.evidence.entity_count }} entities ·
+        {{ c.evidence.transaction_count }} transactions ·
+        {{ c.evidence.flagged_transaction_count }} flagged ·
+        core {{ c.evidence.core_number }} ·
+        {{ c.evidence.span_days }}d</span>
+      {% if c.narrative.status == 'OK' %}
+        <span class="tag tag-ai">{{ c.narrative.probable_cause }}</span>
+      {% else %}
+        <span class="tag tag-warn">narrative unavailable</span>
+      {% endif %}
+    </summary>
+    <div class="cbody">
+      <div class="prov">
+        <span class="tag tag-det">computed by core/</span>
+        <dl>
+          <dt>entities</dt><dd>{{ c.evidence.entity_count }}</dd>
+          <dt>transactions</dt><dd>{{ c.evidence.transaction_count }}</dd>
+          <dt>flagged</dt><dd>{{ c.evidence.flagged_transaction_count }}</dd>
+          <dt>component size</dt><dd>{{ c.evidence.component_size }}</dd>
+          <dt>k-core number</dt><dd>{{ c.evidence.core_number }}</dd>
+          <dt>max degree</dt><dd>{{ c.evidence.max_degree }}</dd>
+          <dt>shared</dt><dd>{{ c.evidence.shared_attributes | join(', ') }}</dd>
+          <dt>distinct cards</dt><dd>{{ c.evidence.distinct_cards }}</dd>
+          <dt>span</dt><dd>{{ c.evidence.span_days }} days</dd>
+          <dt>total amount</dt><dd>₹{{ c.evidence.total_amount_inr | inr }}</dd>
+          <dt>max risk score</dt><dd>{{ "%.4f"|format(c.evidence.max_risk_score) }}</dd>
+          <dt>mean risk score</dt><dd>{{ "%.4f"|format(c.evidence.mean_risk_score) }}</dd>
+        </dl>
+      </div>
+
+      <div class="prov ai">
+        <span class="tag tag-ai">written by the LLM</span>
+        {% if c.narrative.status == 'OK' %}
+          <p style="margin:.5rem 0 .3rem">{{ c.narrative.human_summary }}</p>
+          <p style="margin:.3rem 0 0"><strong>Suggested action:</strong>
+            {{ c.narrative.suggested_action }}</p>
+          <p class="sub" style="margin:.5rem 0 0">
+            cause <code>{{ c.narrative.probable_cause }}</code> ·
+            self-reported confidence <code>{{ c.narrative.confidence }}</code>
+            — deliberately unvalidated, see below</p>
+        {% else %}
+          <p style="margin:.5rem 0 0"><code>NARRATIVE_UNAVAILABLE</code></p>
+          <p class="sub" style="margin:.3rem 0 0">{{ c.narrative.rejection_reason }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </details>
+  {% endfor %}
+
+  <div class="callout">
+    <h4>Why the confidence field is left unvalidated</h4>
+    Each narrative carries a high/medium/low confidence, and RingWatch makes no claim about
+    whether it is accurate. Validating it would need to know which flagged clusters are
+    genuinely rings — and with {{ clusters | length }} clusters and no ring-level ground
+    truth, no such claim is possible. The only ways to manufacture one (grading against
+    transaction labels, or against the engine's own risk score) are circular. That closed
+    loop is exactly why this project's predecessor was abandoned.
+  </div>
+
+  <!-- 6 ─────────────────────────────────────────────────────────── -->
+  <h2>6. Live Razorpay webhook</h2>
+  <p class="sub">The only part of this page that is not precomputed.
+    {{ event_total }} event{{ '' if event_total == 1 else 's' }} received ·
+    <a href="/api/events">JSON feed</a></p>
+
+  <p>Test-mode webhooks are verified by HMAC-SHA256 over the <strong>raw request
+  bytes</strong> — never a parsed and re-serialised body, which would change the bytes and
+  break the signature on payloads nobody tampered with. Delivery is at-least-once, so
+  <code>x-razorpay-event-id</code> is a primary key and replays are no-ops. The endpoint
+  returns 200 <em>before</em> any analysis runs, because Razorpay disables endpoints slower
+  than about five seconds.</p>
+
+  <div class="callout">
+    <h4>Two tracks, and only one of them is a real assessment</h4>
+    <p style="margin:.4rem 0"><span class="tag tag-det">track 1 · real</span>
+    <strong>Graph structure.</strong> Connected components and k-core over an entity graph
+    built from Razorpay-native identifiers. These are the same implementations validated
+    against networkx in the test suite. Topology makes no distributional assumption, so the
+    <em>algorithms</em> transfer to a new payment ecosystem intact.</p>
+    <p style="margin:.4rem 0"><span class="tag tag-warn">track 2 · demonstration</span>
+    <strong>The model score.</strong> The classifier expects 433 IEEE-CIS features; a
+    Razorpay payload supplies 3. It is shown with a measured coverage figure rather than a
+    vague disclaimer, and it is <strong>not</strong> an assessment of the transaction — it
+    demonstrates that the ingestion path works.</p>
+    <p style="margin:.4rem 0 0">The contrast is the point: <strong>the graph transfers, the
+    trained model does not.</strong></p>
+  </div>
+
+  {% if not webhook_configured %}
+    <p class="sub"><code>RAZORPAY_WEBHOOK_SECRET</code> is not configured on this instance,
+    so incoming webhooks are rejected. Every other section is unaffected.</p>
+  {% endif %}
+
+  {% if events %}
+    {% for e in events %}
+    <details class="cluster">
+      <summary>
+        <span class="cid">{{ e.event_type }}</span>
+        <span class="gist">{{ e.received_at }} · {{ e.event_id }}</span>
+        {% if e.analysis and e.analysis.structural and e.analysis.structural.component_size and e.analysis.structural.component_size > 1 %}
+          <span class="tag tag-det">linked to {{ e.analysis.structural.component_size - 1 }}</span>
+        {% else %}
+          <span class="tag tag-det">unlinked</span>
+        {% endif %}
+      </summary>
+      <div class="cbody">
+        {% if e.analysis and e.analysis.structural %}
+        <div class="prov">
+          <span class="tag tag-det">track 1 · graph structure, computed</span>
+          <dl>
+            <dt>payer key</dt><dd>{{ e.analysis.structural.payer_key }}</dd>
+            <dt>component size</dt><dd>{{ e.analysis.structural.component_size }}</dd>
+            <dt>k-core number</dt><dd>{{ e.analysis.structural.core_number }}</dd>
+            <dt>degree</dt><dd>{{ e.analysis.structural.degree }}</dd>
+            <dt>shared</dt><dd>{{ e.analysis.structural.shared_attributes | join(', ') or '—' }}</dd>
+            <dt>linked payers</dt><dd>{{ e.analysis.structural.linked_payers | join(', ') or '—' }}</dd>
+            <dt>entities seen</dt><dd>{{ e.analysis.structural.total_entities }}</dd>
+          </dl>
+        </div>
+        {% endif %}
+
+        {% if e.analysis and e.analysis.demo_score %}
+        <div class="prov" style="border-left-color:var(--warn);background:var(--warn-bg)">
+          <span class="tag tag-warn">track 2 · demonstration only</span>
+          {% if e.analysis.demo_score.available and e.analysis.demo_score.score is not none %}
+            <dl>
+              <dt>model output</dt><dd>{{ "%.4f"|format(e.analysis.demo_score.score) }}</dd>
+              <dt>feature coverage</dt>
+              <dd>{{ e.analysis.demo_score.features_present }} / {{ e.analysis.demo_score.features_total }}
+                  ({{ "%.1f"|format(e.analysis.demo_score.coverage_pct) }}%)</dd>
+            </dl>
+            <p class="sub" style="margin:.5rem 0 0">{{ e.analysis.demo_score.caveat }}</p>
+          {% else %}
+            <p class="sub" style="margin:.4rem 0 0">unavailable —
+              {{ e.analysis.demo_score.reason }}</p>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  {% else %}
+    <p class="sub">No webhook events received yet. Send a test-mode event from the Razorpay
+    dashboard, or replay a signed payload against
+    <code>POST /webhooks/razorpay</code>.</p>
+  {% endif %}
+
+  <p class="meta" style="margin-top:3rem">
+    RingWatch · <a href="https://github.com/sakirr05/ringwatch">source on GitHub</a> ·
+    results commit {{ r.meta.git_commit }}
+  </p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# Render blueprint for the RingWatch demo.
+#
+# The deployed service RENDERS committed results and receives webhooks. It does not
+# retrain, rescore, or recompute any metric -- it has neither the 683 MB dataset nor the
+# model cache, both of which are gitignored. Everything on the dashboard comes from
+# docs/results.json, produced locally by scripts/export_results.py.
+#
+# Free tier caveats, stated here as well as in the README so they are not a surprise:
+#   * the instance spins down after ~15 minutes idle, so a first request can take 30-60s
+#   * the disk is ephemeral, so the SQLite webhook log does not survive a restart
+# Neither affects any reported metric, because the metrics are a committed artifact.
+
+services:
+  - type: web
+    name: ringwatch
+    runtime: python
+    plan: free
+    region: singapore          # closest to Razorpay's own infrastructure
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"        # Render does not ship 3.14 yet; the app is 3.10+ compatible
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false            # set in the Render dashboard; TEST MODE ONLY, never committed
+      - key: RINGWATCH_DB
+        value: /tmp/ringwatch_events.db

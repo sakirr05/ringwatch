@@ -6,6 +6,13 @@ data/raw/
 data/cache/
 data/out/
 
+# Webhook event log: ephemeral, per-instance, never committed
+data/*.db
+
+# NOTE: artifacts/ IS committed. It holds model_baseline.txt (6.8 MB), which the
+# deployed demo needs for its clearly-labelled out-of-distribution scoring track,
+# since data/cache/ is ignored.
+
 # Python
 __pycache__/
 *.pyc

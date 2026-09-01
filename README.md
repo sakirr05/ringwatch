@@ -4,6 +4,20 @@
 
 Razorpay AI Buildathon 2026 · Track 02 (AI Risk Manager)
 
+**Live demo:** _(deploy in progress — see [Deploying the demo](#deploying-the-demo))_
+· `GET /` dashboard · `POST /webhooks/razorpay` webhook receiver
+
+> **What is live vs what is local.** The deployed service **renders committed results and
+> receives webhooks. It never retrains, rescores, or recomputes a metric** — it has neither
+> the 683 MB dataset nor the model cache, both of which are gitignored. Every figure on the
+> dashboard comes from `docs/results.json`, produced locally by
+> `scripts/export_results.py`. The full pipeline — download, temporal split, training, the
+> four-variant ablation, the bootstrap — runs locally and takes several minutes of CPU.
+>
+> On the free tier the instance spins down after ~15 minutes idle, so **a first request can
+> take 30–60 seconds**. The SQLite webhook log is ephemeral and does not survive a restart.
+> Neither affects a reported metric.
+
 > ## ⚠️ Detection-only
 >
 > RingWatch is **strictly a detection and analysis system.** It does not generate,
@@ -260,6 +274,52 @@ Example (cluster 8, `SHARED_CREDENTIAL_REUSE`, confidence medium):
 
 Every number in that paragraph was computed by `core/`. The model chose the words.
 
+## The webhook: what transfers to a new payment ecosystem, and what doesn't
+
+The Razorpay webhook receiver is a real integration, not a decoration. Signatures are
+verified with HMAC-SHA256 over the **raw request bytes** using `hmac.compare_digest`;
+delivery is idempotent on `x-razorpay-event-id` because Razorpay delivers at-least-once;
+and the endpoint returns 200 **before** any analysis runs, because Razorpay disables
+endpoints slower than about five seconds.
+
+The raw-body detail is the one worth dwelling on. Parsing the JSON and re-serialising it
+produces different bytes for the same document — reordered keys, normalised whitespace,
+`249900.00` collapsed to `249900.0` — so the HMAC no longer matches and verification fails
+on payloads nobody tampered with. It presents as intermittent failures that look like an
+upstream problem. `tests/test_webhook.py::test_reserialized_body_fails_verification`
+reproduces exactly that and asserts the failure, so the constraint is pinned in executable
+form.
+
+### Building it surfaced a result worth reporting
+
+The obvious feature — "score incoming payments with the trained model" — turns out not to
+be honestly possible, and finding out why is more interesting than the feature would have
+been.
+
+**The classifier expects 433 features. A Razorpay payment payload supplies 3.** `card1`,
+`card2` and `card5` are Vesta-internal identifiers, not card network or type; `addr1/2` and
+`dist1/2` likewise; `C1–C14`, `D1–D15`, `M1–M9` and `V1–V339` — roughly 400 columns — are
+Vesta's proprietary engineered features with no counterpart in any processor's webhook.
+LightGBM will accept 430 missing values and return a number, but that number comes from a
+model operating almost entirely outside its training distribution.
+
+So the handler runs two tracks and the interface never lets them blur:
+
+| | what it is | what it can claim |
+|---|---|---|
+| **Track 1 — graph structure** | Connected components and k-core over an entity graph built from Razorpay-native identifiers (card fingerprint, email domain, contact, VPA), using the **same implementations validated against networkx** in the test suite | A real computation. Topology assumes no distribution and was fitted to nothing, so it transfers intact |
+| **Track 2 — model score** | The booster run with 430 features missing | **A demonstration of the ingestion path only.** Shown with a measured coverage figure — *"3 of 433 features present"* — not a vague disclaimer |
+
+Verified locally on two test-mode payments from different payers sharing one card
+fingerprint: Track 1 correctly placed them in a single component (size 2, core 2, linked on
+`card_fingerprint` and `email_domain`), while Track 2 returned 0.0066 at **0.7% feature
+coverage**.
+
+**The contrast is the finding: the graph algorithms transfer across payment ecosystems, the
+trained model does not.** Reporting that is more useful than quietly displaying a number
+that means nothing — and stating it is the same discipline as reporting the negative
+ablation above.
+
 ## Ground-truth honesty
 
 **IEEE-CIS provides transaction-level fraud labels, not ring-level labels.** RingWatch
@@ -476,7 +536,43 @@ Without keys, this stage reports `NARRATIVE_UNAVAILABLE` for every cluster and t
 of the pipeline is unaffected. Responses are cached by SHA-256 of the prompt, so repeat
 runs are free and reproducible.
 
-### 5. Tests
+### 5. The demo (dashboard + webhook)
+
+```bash
+python scripts/export_results.py     # freeze results -> docs/results.json
+uvicorn app.main:app --reload        # http://localhost:8000
+```
+
+The web layer renders `docs/results.json` and nothing else.
+`tests/test_app.py::test_app_layer_computes_nothing` walks the AST of every module under
+`app/` and fails if any of them imports a modelling library or an evaluation module — the
+same technique that enforces the AI/determinism boundary, applied to the web layer. A page
+load structurally cannot produce a number.
+
+To receive real webhooks locally, expose the port and point a **test-mode** Razorpay
+webhook at it:
+
+```bash
+export RAZORPAY_WEBHOOK_SECRET=whsec_your_test_secret
+cloudflared tunnel --url http://localhost:8000     # free, no account needed
+```
+
+### Deploying the demo
+
+```bash
+# 1. Push. render.yaml is a blueprint; Render reads it automatically.
+# 2. On render.com: New > Blueprint > pick this repo.
+# 3. Set RAZORPAY_WEBHOOK_SECRET in the Render dashboard (test mode only; it is
+#    marked sync:false in render.yaml so it is never committed).
+# 4. Point a Razorpay test-mode webhook at https://<your-service>.onrender.com/webhooks/razorpay
+```
+
+`artifacts/model_baseline.txt` (6.8 MB) is committed deliberately: `data/cache/` is
+gitignored, and the deployed instance needs the booster for its clearly-labelled
+out-of-distribution scoring track. If it is absent the app still starts and that track
+reports "unavailable" — nothing else is affected.
+
+### 6. Tests
 
 ```bash
 pytest -q
