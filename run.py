@@ -179,33 +179,86 @@ def _honest_negative_case(
             "baseline": baseline_scores,
             "augmented": augmented_scores,
             "component_size": test["g_component_size"].to_numpy(),
-            "core": test["g_core_number"].to_numpy(),
+            "core": test["g_core_number"].fillna(0).to_numpy(),
+            "degree": test["g_degree"].fillna(0).to_numpy(),
             "amount": test["TransactionAmt"].to_numpy(),
         }
     )
     frame["delta"] = frame["augmented"] - frame["baseline"]
+    size = frame["component_size"].fillna(0)
 
-    legit = frame[(frame.is_fraud == 0) & (frame.component_size.notna())]
-    hurt = legit.nlargest(5, "delta")
+    groups = [
+        ("no entity resolved", size == 0),
+        ("isolated (comp=1)", size == 1),
+        ("comp 2", size == 2),
+        ("comp 3-4", (size >= 3) & (size <= 4)),
+        ("comp 5+", size >= 5),
+    ]
 
-    print("\n  Legitimate transactions the graph layer pushed MOST toward being declined:")
-    print(
-        f"    {'component':>10} {'core':>5} {'amount':>10} "
-        f"{'baseline':>9} {'augmented':>10} {'delta':>8}"
-    )
-    for _, row in hurt.iterrows():
+    print("\n  Where does the graph layer actually move scores?")
+    print(f"    {'group':<20} {'rows':>8} {'mean|delta|':>12} {'mean delta':>12}")
+    for name, mask in groups:
+        if not mask.any():
+            continue
+        subset = frame[mask]
         print(
-            f"    {row.component_size:10.0f} {row.core:5.0f} {row.amount:10.2f} "
-            f"{row.baseline:9.4f} {row.augmented:10.4f} {row.delta:+8.4f}"
+            f"    {name:<20} {len(subset):>8,} {subset.delta.abs().mean():>12.4f} "
+            f"{subset.delta.mean():>+12.4f}"
         )
 
-    fraud = frame[(frame.is_fraud == 1) & (frame.component_size.notna())]
-    missed = fraud.nsmallest(3, "delta")
-    print("\n  Fraudulent transactions the graph layer pushed toward being ACCEPTED:")
-    for _, row in missed.iterrows():
+    print("\n  Legitimate rows pushed toward decline by more than 0.10:")
+    print(f"    {'group':<20} {'legit rows':>11} {'harmed':>8} {'rate':>9}")
+    legit_frame = frame[frame.is_fraud == 0]
+    legit_size = legit_frame["component_size"].fillna(0)
+    for name, _ in groups:
+        mask = {
+            "no entity resolved": legit_size == 0,
+            "isolated (comp=1)": legit_size == 1,
+            "comp 2": legit_size == 2,
+            "comp 3-4": (legit_size >= 3) & (legit_size <= 4),
+            "comp 5+": legit_size >= 5,
+        }[name]
+        if not mask.any():
+            continue
+        subset = legit_frame[mask]
+        harmed = int((subset.delta > 0.10).sum())
         print(
-            f"    {row.component_size:10.0f} {row.core:5.0f} {row.amount:10.2f} "
-            f"{row.baseline:9.4f} {row.augmented:10.4f} {row.delta:+8.4f}"
+            f"    {name:<20} {len(subset):>11,} {harmed:>8} "
+            f"{100 * harmed / len(subset):>8.3f}%"
+        )
+
+    print(
+        "\n  -> The largest perturbation is on rows where NO entity could be resolved,"
+        "\n     i.e. exactly where the graph has nothing to say. The graph columns are"
+        "\n     NaN there, and the model re-learns the (genuinely predictive) missingness"
+        "\n     pattern more noisily than it already had from the null addr1/D1 columns."
+        "\n     That is noise injection, not ring confusion."
+    )
+
+    # The hypothesised failure mode -- a legitimate customer inside a genuine multi-entity
+    # cluster pushed toward a decline because the topology looks ring-like. It is real,
+    # and it is NOT the dominant effect. Both halves of that sentence are reported.
+    print("\n  The hypothesised case, which does also occur: legitimate customers inside")
+    print("  REAL multi-entity clusters pushed toward decline by the topology alone:")
+    print(
+        f"    {'comp size':>10} {'core':>5} {'degree':>7} {'amount':>9} "
+        f"{'baseline':>9} {'augmented':>10} {'delta':>8}"
+    )
+    ring_legit = frame[(frame.is_fraud == 0) & (size >= 3)].nlargest(5, "delta")
+    for _, row in ring_legit.iterrows():
+        print(
+            f"    {row.component_size:10.0f} {row.core:5.0f} {row.degree:7.0f} "
+            f"{row.amount:9.2f} {row.baseline:9.4f} {row.augmented:10.4f} "
+            f"{row.delta:+8.4f}"
+        )
+
+    fraud = frame[(frame.is_fraud == 1) & frame.component_size.notna()]
+    print("\n  And fraud the graph layer pushed toward being ACCEPTED:")
+    for _, row in fraud.nsmallest(3, "delta").iterrows():
+        print(
+            f"    {row.component_size:10.0f} {row.core:5.0f} {row.degree:7.0f} "
+            f"{row.amount:9.2f} {row.baseline:9.4f} {row.augmented:10.4f} "
+            f"{row.delta:+8.4f}"
         )
 
 

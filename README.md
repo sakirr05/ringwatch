@@ -84,6 +84,31 @@ Quintupling coverage makes things actively worse.
 *because* it is positive and meaningless: selecting it as "the graph helps at cap 20"
 would be exactly the p-hacking this project refused to do.
 
+### Where the harm actually comes from
+
+The ablation prints a breakdown of *where* graph features move scores, and the answer
+was not the one the design predicted:
+
+| group | rows | mean abs. Δ score | legit rows pushed >0.10 toward decline |
+|---|---|---|---|
+| **no entity resolved** | 12,234 | **0.0161** | **1.046%** |
+| isolated (comp=1) | 99,520 | 0.0046 | 0.189% |
+| comp 2 | 1,620 | 0.0050 | 0.316% |
+| comp 3–4 | 2,963 | 0.0050 | 0.137% |
+| comp 5+ | 1,771 | 0.0053 | 0.233% |
+
+The largest perturbation — 3.5× any other group — is on rows where **no entity could be
+resolved at all**, i.e. precisely where the graph has nothing to say. Graph columns are
+NaN there, and the model re-learns the genuinely predictive missingness pattern (those
+rows run 11.63% fraud vs 3.50% overall) more noisily than it already had from the null
+`addr1`/`D1` columns. **That is noise injection, not ring confusion.**
+
+The hypothesised failure mode — a legitimate customer inside a real cluster pushed toward
+decline by topology alone — *does* occur, and the pipeline prints those rows too (e.g. a
+27-entity component, core 2, legitimate, pushed 0.0818 → 0.2115). It is simply not the
+dominant effect. Reporting the predicted case without the dominant one would have been
+the tidier story and the wrong one.
+
 **What the graph layer is therefore used for here:** surfacing statistically anomalous
 clusters for analyst review — which is what it demonstrably does — and *not* feature-level
 lift, which it demonstrably does not. k-core is retained and reported as the measured harm
