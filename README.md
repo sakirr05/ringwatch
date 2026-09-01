@@ -320,6 +320,68 @@ trained model does not.** Reporting that is more useful than quietly displaying 
 that means nothing — and stating it is the same discipline as reporting the negative
 ablation above.
 
+## Incremental k-core maintenance
+
+Production fraud graphs update continuously; RingWatch rebuilds in batch. So the k-core
+implementation was extended to maintain core numbers **incrementally** under edge
+insertion, using the traversal/subcore approach from the streaming core-maintenance
+literature (Sarıyüce et al.; Zhang et al. for the order-based alternative).
+
+It rests on one result: inserting an edge (u, v) raises any core number by **at most 1**,
+and only for vertices whose core number equals `min(core(u), core(v))`. That bounds the
+blast radius, so a local repair is possible — collect the candidate subcore, peel it, and
+promote the survivors.
+
+### Correctness: exact, against the batch oracle
+
+`core/graph.py` is untouched and serves as the oracle. Incremental core numbers must equal
+a full rebuild **exactly**, at three tiers — random graphs asserted after *every single
+insertion*, the pathological fixtures reused from the batch suite (barbell, wheel,
+lollipop, karate, complete bipartite, ladder, star, path), and the real IEEE-CIS entity
+graph replayed edge by edge. 37 tests, all exact-equality. The chain of trust runs
+networkx → batch → incremental.
+
+### The benchmark, and a prediction I got wrong
+
+`PLAN_INCREMENTAL.md` recorded a prediction *before* any measurement: that incremental
+maintenance would lose on this graph. **It was wrong, and by a wide margin.**
+
+| graph | candidates/insert | per-insert | vs full rebuild |
+|---|---|---|---|
+| dense random — 20k nodes, 60k edges | 9,543 | 21,887 µs | crossover at **3 edges** |
+| dense random — 5k nodes, 15k edges | 2,109 | 3,485 µs | bulk replay **667× slower** |
+| sparse, entity-graph-shaped | 2.8 | 4.4 µs | crossover at 67% of edges |
+| **real IEEE-CIS entity graph** | **2.8** | **2.0 µs** | **2.8× faster** (0.058 s vs 164 ms) |
+
+I predicted a crossover at 1–5% of total edges; it is **282%** — you would have to insert
+nearly three times the entire graph before batching became cheaper. Memory overhead is
++0.1 to +4.0 MB depending on size.
+
+**The reason is density, and it inverts the answer.** On the real graph the affected
+subcore per insertion is 2.8 vertices, so repairing three vertices beats peeling 208,914.
+On dense graphs the "local" repair is not local — most vertices share a core number, the
+candidate set becomes a large fraction of the graph, and every insertion re-peels it. My
+error was noting the graph's sparsity and then not carrying the consequence through.
+
+### When this is and isn't worth using
+
+**Worth it:** sparse entity graphs with small components — which is what payment
+fingerprint graphs actually look like — under genuine streaming, where updates arrive a few
+at a time. At 2.0 µs per edge this comfortably keeps up with real transaction volume.
+
+**Not worth it:** dense graphs, or bulk backfills. Above the crossover, rebuild. On a dense
+graph incremental is catastrophically worse, not marginally so.
+
+**Unmeasured, and a real limit on the claim:** the replay uses the **post-suppression**
+edge set, so it never exercises a cap-crossing — yet the batch graph suppresses **8,852 hub
+values**, each of which a faithful stream would hit as an edge *deletion*. Deletion is a
+harder problem and is not implemented. The measured 2.8× is therefore an upper bound on
+what a real streaming deployment would see.
+
+```bash
+python scripts/benchmark_incremental.py
+```
+
 ## Ground-truth honesty
 
 **IEEE-CIS provides transaction-level fraud labels, not ring-level labels.** RingWatch

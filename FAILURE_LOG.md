@@ -118,6 +118,57 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-02 12:40] — The webhook feature I planned turned out to be dishonest
+
+- **Symptom:** Not a crash. The plan said "on a `payment.*` event, extract the fields the
+  model needs, run the existing deterministic scorer." Checking what the booster actually
+  requires before writing the mapping: **433 features, of which a Razorpay payload can
+  supply 3.**
+- **Diagnosis:** `card1`, `card2` and `card5` are Vesta-internal identifiers, not card
+  network or type. `addr1/2` and `dist1/2` likewise. `C1–C14`, `D1–D15`, `M1–M9` and
+  `V1–V339` — roughly 400 columns — are Vesta's proprietary engineered features with no
+  counterpart in any processor's webhook. LightGBM accepts 430 NaNs and returns a number
+  quite happily, and that number would have gone on a public dashboard labelled as a fraud
+  score. For a project that abandoned LedgerLoop for being a closed loop and refuses to
+  calibrate LLM confidence on 12 samples, shipping that would have discredited the honest
+  parts retroactively — and a payments or ML reviewer spots it immediately.
+  I also nearly mapped `card4`/`card6`/`P_emaildomain`, which *look* like clean matches;
+  LightGBM encodes categoricals as integer codes fixed at training time, so feeding a
+  category with a different code ordering silently maps "visa" onto whatever occupied that
+  code in training. A wrong number that looks plausible is worse than an honest missing one.
+- **Fix:** Two tracks that the interface never blurs. **Track 1** runs the existing
+  networkx-validated connected-components and k-core over an entity graph built from
+  Razorpay-native identifiers — a real computation, because topology assumes no
+  distribution and was fitted to nothing. **Track 2** runs the model and displays a
+  *measured* coverage figure ("3 of 433 features present") rather than a vague disclaimer,
+  labelled as demonstrating the ingestion path and not assessing the transaction.
+  The contrast turned out to be a better result than the feature would have been: **the
+  graph algorithms transfer across payment ecosystems; the trained model does not.**
+
+## [2026-09-02 14:15] — I pre-registered a prediction about incremental k-core and it was wrong
+
+- **Symptom:** `PLAN_INCREMENTAL.md` recorded, before any measurement, that incremental
+  k-core maintenance would **lose** on this graph — predicted crossover at 1–5% of edges,
+  bulk replay "slower by a large multiple". Measured: crossover at **282%** of edges, and
+  full replay **2.8× faster** than a rebuild (0.058 s vs 164 ms). Wrong in direction and
+  off by roughly 100× in magnitude.
+- **Diagnosis:** I reasoned that the batch build is already fast in absolute terms, so
+  per-edge Python bookkeeping would swamp it. I had already observed that the graph is
+  extremely sparse — 92% of entities isolated, components maxing out at 39 — and then
+  failed to carry that observation through. The affected subcore per insertion is **2.8
+  vertices**. Repairing three vertices beats peeling 208,914 by so much that slow Python
+  wins comfortably. I anchored on absolute batch speed and never estimated the candidate
+  set size, which is the only quantity that actually matters.
+- **Fix:** Nothing to fix in the code — it was correct throughout, matching the batch
+  oracle exactly at every step. The prediction stays in `PLAN_INCREMENTAL.md` verbatim with
+  the outcome appended beneath it, because a pre-registration you quietly amend afterwards
+  is worth nothing. The benchmark also surfaced what the prediction never considered: the
+  answer **inverts with density**. On dense random graphs incremental is 667× *slower* and
+  the crossover falls to 3 edges. So the honest claim is not "incremental k-core is faster"
+  but "it is faster on sparse entity graphs, which is what payment fingerprint graphs
+  happen to be" — and the replay never exercises the 8,852 hub cap-crossings a real stream
+  would hit as deletions, so even that is an upper bound.
+
 ## [2026-09-01 18:05] — Hardcoded a model name that Google had already retired
 
 - **Symptom:** With a valid API key finally configured, the first live call returned
