@@ -27,12 +27,48 @@ each transaction independently and never sees that forty of them share a fingerp
 RingWatch adds a classical graph layer over an entity graph to surface that coordination,
 and — critically — measures honestly whether doing so actually helps.
 
-## Status
+## Headline result — including the part that didn't work
 
-**In development.** Phases 0–1 (recon, data acquisition, scaffold) complete. No metrics
-are reported yet; this README will carry measured numbers only once they have actually
-been produced by `core/evaluate.py`. See `PLAN.md` for the phase plan and `FAILURE_LOG.md`
-for the build's real dead ends.
+RingWatch set out to show that a classical graph layer improves fraud detection. **It
+does not, and this README says so before it says anything else.**
+
+Two findings, both measured, both defensible:
+
+**1. Fraud genuinely clusters in the entity graph.** Testing *concentration* against a
+label-permutation null: **12 fully-fraudulent connected components observed against
+1.4 ± 1.2 expected by chance — z = +8.8**, stable across every hub-suppression cap tried
+(+8.8 / +8.6 / +9.1). The ring structure is real.
+
+**2. That structure does not convert into predictive lift.** Paired bootstrap, 400
+resamples, both models scored on identical resampled test rows:
+
+| variant | AUC-PR | Δ vs baseline | 95% CI | verdict |
+|---|---|---|---|---|
+| **tabular only** | **0.5188** | — | — | baseline |
+| + components | 0.5176 | −0.0011 | [−0.0042, +0.0024] | not significant |
+| + k-core | 0.5123 | −0.0064 | [−0.0102, −0.0031] | **significantly worse** |
+| + full graph | 0.5168 | −0.0020 | [−0.0056, +0.0013] | not significant |
+
+Baseline AUC-PR of 0.5188 against a 0.0344 prevalence floor is a **15.1× lift over
+random**. The graph adds nothing to it.
+
+These two results are not in tension. The rings are real but **rare** — 12 of them —
+and the graph reaches only **5.38% of test rows**. Twelve rings cannot move a metric
+averaged over 118,108 transactions, while 433 tabular features already capture most of
+the available signal. On the linked subgroup alone the point estimate does turn positive
+(0.4118 → 0.4298, **+0.017**), but its CI spans zero: 6,354 rows containing 136 fraud
+cases cannot resolve an effect that small.
+
+**What the graph layer is therefore used for here:** surfacing statistically anomalous
+clusters for analyst review — which is what it demonstrably does — and *not* feature-level
+lift, which it demonstrably does not. k-core is retained and reported as the measured harm
+case rather than quietly deleted, but is excluded from the recommended model
+configuration, because shipping a configuration measured as worse would be indefensible.
+
+The alternative was to keep trying link keys, aggregates and caps until something scored
+above baseline. With enough configurations one of them would, by chance. That is
+p-hacking, and it would not survive the interview question "how many variants did you
+try?" See `FAILURE_LOG.md`, entry dated 17:40.
 
 ## Data
 
@@ -131,8 +167,30 @@ curve, and defends a specific chosen operating threshold rather than hiding behi
 single aggregate.
 
 False positives are costed explicitly as an **insult rate**: at the chosen threshold, how
-many legitimate customers were wrongly declined, and what that costs in rupees under a
-named, documented assumed order value.
+many legitimate customers were wrongly declined, and what that costs in rupees under
+named, documented assumptions (see the constants block at the top of `core/evaluate.py`).
+
+### Two operating points, because one would have been misleading
+
+| | [A] cost-minimising | [B] insult-constrained (≤1%) |
+|---|---|---|
+| threshold | 0.0438 | 0.2167 |
+| precision | 0.3082 | **0.6355** |
+| recall | **0.6309** | 0.4178 |
+| fraud caught / missed | 2,564 / 1,500 | 1,698 / 2,366 |
+| **legitimate customers declined** | **5,756** | **974** |
+| insult rate | 5.047% | 0.854% |
+| total expected cost | ₹3,38,95,246 | ₹4,07,47,202 |
+
+Point [A] minimises expected rupee cost and is **operationally unshippable**: no payments
+team declines 5% of legitimate traffic. The arithmetic is right; the model is incomplete.
+It prices a missed fraud at the full transaction value plus a chargeback fee, but prices a
+false positive at only the lost gross margin — because the lifetime-value damage of
+insulting a good customer is deliberately **not monetised**, as putting a number on churn
+would be inventing data. An unpriced cost reads to an optimiser as a free one.
+
+So both are reported. The gap between them *is* the honest statement of what the missing
+cost is doing, and every insult figure here is an **underestimate**.
 
 ## Limitations
 
@@ -152,8 +210,25 @@ Written as they are discovered, not reconstructed at the end.
   deliberately **not** built on `DeviceInfo` or `id_30`–`id_33` for this reason; those
   columns would produce a mostly-disconnected graph of noise.
 - **Single dataset.** Findings are demonstrated on IEEE-CIS only.
-
-*(Extended after each phase.)*
+- **The graph layer does not improve prediction.** Stated at the top of this README and
+  measured with bootstrap confidence intervals rather than asserted. The honest scope of
+  the graph contribution is cluster surfacing, not lift.
+- **Graph coverage is 5.38% of test rows**, a direct consequence of choosing a hub cap
+  below the percolation threshold. A higher cap reaches more rows but dissolves the
+  components into a hairball; that trade-off is measured, not guessed, but it is a
+  trade-off with no good corner.
+- **The linked-subgroup result is underpowered.** The +0.017 point estimate on linked
+  rows is the most promising number in the project and it is *not* statistically
+  significant. It is reported as a hypothesis for future work, not as a finding.
+- **The amounts are USD, converted for reporting.** IEEE-CIS is US e-commerce data
+  (Vesta). Rupee figures apply a documented FX assumption; they illustrate the costing
+  method, and are not claims about Indian transaction values.
+- **Cost assumptions are assumptions.** Margin rate, chargeback fee and FX are declared
+  constants a reviewer can disagree with and re-run. Churn cost is unpriced entirely,
+  which makes every insult cost an underestimate.
+- **`confidence` in the LLM output is unvalidated.** The field exists and is
+  schema-checked, but nothing here measures how often "high" is actually right — that
+  would need the grading layer this build did not have time for.
 
 ## Deployment
 

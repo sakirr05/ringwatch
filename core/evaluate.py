@@ -145,6 +145,82 @@ class EvaluationReport:
         return lines
 
 
+@dataclass
+class DeltaReport:
+    """A difference in AUC-PR between two models, with an honest uncertainty interval."""
+
+    name: str
+    delta: float
+    ci_low: float
+    ci_high: float
+    n_resamples: int
+
+    @property
+    def significant(self) -> bool:
+        """True only if the 95% interval excludes zero."""
+        return self.ci_low > 0 or self.ci_high < 0
+
+    def verdict(self) -> str:
+        if not self.significant:
+            return "not significant (CI spans 0)"
+        return "SIGNIFICANTLY BETTER" if self.delta > 0 else "SIGNIFICANTLY WORSE"
+
+    def line(self) -> str:
+        return (
+            f"  {self.name:<16} {self.delta:+.4f}  "
+            f"95% CI [{self.ci_low:+.4f}, {self.ci_high:+.4f}]  {self.verdict()}"
+        )
+
+
+def bootstrap_auc_pr_delta(
+    y_true: np.ndarray,
+    baseline_scores: np.ndarray,
+    variant_scores: np.ndarray,
+    name: str,
+    n_resamples: int = 400,
+    seed: int = 0,
+) -> DeltaReport:
+    """Paired bootstrap CI for the AUC-PR difference between two models.
+
+    WHY THIS IS NOT OPTIONAL
+    ------------------------
+    A single-run AUC-PR difference of 0.002 is not a result, it is a number. Both models
+    are scored on the same 118,108 rows containing 4,064 fraud cases, and resampling
+    those rows shows how much of any observed gap is just which transactions happened to
+    land in the test period.
+
+    Reporting a raw delta without this interval is how projects claim lifts that do not
+    exist. Here it is what separates "the graph layer helps a little" from "the graph
+    layer does nothing measurable", and the honest answer turned out to be the second.
+
+    The resampling is paired -- both models are evaluated on the same resampled indices --
+    so the comparison is not inflated by test-set variation that affects them equally.
+    """
+    y_true = np.asarray(y_true).astype(int)
+    rng = np.random.default_rng(seed)
+    n = len(y_true)
+
+    deltas = np.empty(n_resamples, dtype=np.float64)
+    for i in range(n_resamples):
+        idx = rng.integers(0, n, size=n)
+        resampled_y = y_true[idx]
+        if resampled_y.sum() == 0:  # degenerate resample, no positives
+            deltas[i] = 0.0
+            continue
+        deltas[i] = average_precision_score(
+            resampled_y, variant_scores[idx]
+        ) - average_precision_score(resampled_y, baseline_scores[idx])
+
+    low, high = np.percentile(deltas, [2.5, 97.5])
+    return DeltaReport(
+        name=name,
+        delta=float(deltas.mean()),
+        ci_low=float(low),
+        ci_high=float(high),
+        n_resamples=n_resamples,
+    )
+
+
 def cost_at_threshold(
     y_true: np.ndarray,
     y_score: np.ndarray,

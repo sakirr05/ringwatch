@@ -49,6 +49,64 @@ Format: `## [timestamp] — Symptom / Diagnosis / Fix`
   engineered features and a reduced column set, which would both contaminate the ablation
   and mean I hadn't built the feature layer myself.
 
+## [2026-09-01 17:40] — The central hypothesis failed: the graph layer produces no lift
+
+**The most important entry in this log.** The project was built to show that graph
+features improve fraud detection. Measured honestly, they do not.
+
+- **Symptom:** The four-variant ablation on the temporally held-out test set:
+
+  | variant | AUC-PR | vs baseline |
+  |---|---|---|
+  | tabular only | **0.5188** | — |
+  | + components | 0.5176 | −0.0011 |
+  | + k-core | 0.5123 | −0.0064 |
+  | + full graph | 0.5168 | −0.0019 |
+
+  Every graph-augmented variant scored *below* the tabular baseline. This directly
+  contradicts the premise the project was designed around.
+
+- **Diagnosis:** My first instinct was that a −0.002 delta is noise and I could describe
+  the layer as "roughly neutral." That instinct was itself the thing to catch: a raw
+  delta from a single run is not a result. I ran a **paired bootstrap** (400 resamples of
+  the test set, both models scored on identical resampled indices):
+
+  - `+ components`: −0.0011, 95% CI [−0.0042, +0.0024] → not significant
+  - `+ k-core`: −0.0064, 95% CI [−0.0102, −0.0031] → **significantly WORSE**
+  - `+ full graph`: −0.0020, 95% CI [−0.0056, +0.0013] → not significant
+
+  So "roughly neutral" was wrong in both directions: two variants are genuinely
+  indistinguishable from baseline, and k-core is genuinely harmful, not noise.
+
+  The cause is coverage, not correctness. The graph touches only **5.38% of test rows**,
+  and the ring structure it finds is real but *rare* — 12 all-fraud components. Twelve
+  rings cannot move a metric computed over 118,108 transactions, while the graph features
+  add a small amount of noise to the other 94.6% of rows. Meanwhile LightGBM already has
+  433 features that capture most of what little signal exists. Restricting to the linked
+  subgroup, the point estimate does flip positive (0.4118 → 0.4298, **+0.017**) but its CI
+  spans zero: 6,354 rows containing 136 fraud cases cannot resolve an effect that size.
+
+- **Fix:** Not a code fix — a **claim fix**. The honest finding is that fraud
+  *concentrates* in the entity graph far beyond chance (z = +8.8 against a
+  label-permutation null, stable across every hub cap) while that concentration
+  *does not convert into dataset-wide predictive lift*. Those two statements are both
+  true and are not in tension: rare structure is real structure and still cannot move an
+  average.
+
+  So the graph layer was retargeted to what it demonstrably does — surfacing
+  statistically anomalous clusters for analyst review, which is what feeds the narrative
+  layer — rather than to feature-level lift, which it demonstrably does not do. k-core is
+  kept and **reported as the measured harm case** (its CI excludes zero, which makes it
+  far better evidence than a cherry-picked anecdote would have been) but is dropped from
+  the recommended model configuration, because shipping a config I have measured as worse
+  would be indefensible.
+
+  The tempting alternative was to keep engineering until something looked positive: more
+  link keys, ring-specific aggregates, a tuned cap. Given enough configurations, one of
+  them scores above baseline by chance. That is p-hacking, it would not survive an
+  interview question about how many variants I tried, and I would not be able to honestly
+  answer that question. Rejected deliberately.
+
 ## [2026-09-01 16:20] — LightGBM rejected 31 columns: a pandas 3.0 dtype change
 
 - **Symptom:** First baseline training run died immediately:

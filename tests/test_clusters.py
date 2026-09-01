@@ -92,6 +92,33 @@ def test_every_evidence_number_is_quotable():
         assert shown <= allowed, f"unquotable figures in prompt: {sorted(shown - allowed)}"
 
 
+def test_component_with_only_one_entity_in_scope_is_excluded():
+    """A component can span multiple entities while only one is in the scored period.
+
+    Regression test. The original filter used g_component_size -- the component's size in
+    the full graph -- so clusters reached the analyst showing "entities=1", which is not a
+    cluster of coordinated accounts at all. Caught only when running on real data; the
+    original synthetic fixture could not express this case, which is exactly why the
+    passing test gave false confidence.
+    """
+    frame = pd.DataFrame(
+        {
+            UID_COL: ["solo", "solo"],
+            "g_component": [10, 10],
+            "g_component_size": [4, 4],  # four entities exist in the graph...
+            "g_core_number": [2, 2],
+            "g_degree": [2, 2],
+            "TransactionDT": [86_400, 86_400],
+            "TransactionAmt": [10.0, 20.0],
+            "card1": [1000, 1000],
+            "addr1": [204, 204],
+            "P_emaildomain": ["a.com", "a.com"],
+        }
+    )
+    # ...but only one of them appears here, so there is no cluster to show an analyst.
+    assert build_cluster_evidence(frame, np.array([0.99, 0.98]), threshold=0.5) == []
+
+
 def test_selection_is_deterministic():
     frame = make_test_frame()
     scores = np.array([0.9, 0.8, 0.7, 0.95, 0.4, 0.3, 0.99])

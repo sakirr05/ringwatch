@@ -44,6 +44,17 @@ def build_cluster_evidence(
     if eligible.empty:
         return []
 
+    # `g_component_size` counts entities in the GRAPH, which spans the whole timeline.
+    # A component can be genuinely multi-entity while only one of its entities appears in
+    # the period being scored -- and presenting that to an analyst as a "cluster" of
+    # coordinated accounts would be misleading, because there is only one account here to
+    # look at. Filter on entities actually present in the scored data.
+    entities_present = eligible.groupby("g_component", observed=True)[UID_COL].nunique()
+    multi_entity = entities_present[entities_present >= 2].index
+    eligible = eligible[eligible["g_component"].isin(multi_entity)]
+    if eligible.empty:
+        return []
+
     grouped = eligible.groupby("g_component", observed=True)
     ranked = (
         grouped["_score"]

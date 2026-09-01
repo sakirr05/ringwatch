@@ -14,15 +14,17 @@ re-running is cheap and reproduces byte-identical numbers.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import average_precision_score
 
 from core.data import CACHE_DIR, TARGET, dataset_summary, load_merged
-from core.evaluate import evaluate
+from core.evaluate import bootstrap_auc_pr_delta, evaluate
 from core.features import add_time_features, feature_columns
 from core.graph import (
     GRAPH_FEATURE_COLUMNS,
@@ -257,6 +259,36 @@ def stage_ablation(df: pd.DataFrame | None = None) -> None:
             f"{marker:>10} {report.auc_roc:>9.4f}"
         )
 
+    banner("IS ANY OF THIS DIFFERENCE REAL? (paired bootstrap, 95% CI)")
+    print("A raw delta is not a result. Resampling the test set shows how much of each")
+    print("gap is just which transactions landed in the held-out period.\n")
+    baseline_scores = scores_by_name["tabular only"]
+    for name in ("+ components", "+ k-core", "+ full graph"):
+        delta = bootstrap_auc_pr_delta(
+            test[TARGET].values, baseline_scores, scores_by_name[name], name
+        )
+        print(delta.line())
+
+    print("\n  Subgroup: transactions whose entity is actually linked in the graph")
+    linked = test["g_is_linked"].fillna(0).to_numpy() == 1
+    y_linked = test[TARGET].values[linked]
+    print(
+        f"    {linked.sum():,} rows ({100 * linked.mean():.2f}% of test), "
+        f"fraud rate {y_linked.mean():.4f}"
+    )
+    for name, scores in scores_by_name.items():
+        print(
+            f"    {name:<16} AUC-PR = "
+            f"{average_precision_score(y_linked, scores[linked]):.4f}"
+        )
+    subgroup_delta = bootstrap_auc_pr_delta(
+        y_linked,
+        baseline_scores[linked],
+        scores_by_name["+ full graph"][linked],
+        "+ full graph (linked only)",
+    )
+    print(subgroup_delta.line())
+
     print()
     for report in reports.values():
         for line in report.summary_lines():
@@ -325,7 +357,25 @@ def stage_narrate(df: pd.DataFrame | None = None) -> None:
     )
 
 
+def _load_env() -> None:
+    """Load .env if present, so documented credentials actually reach the provider.
+
+    Absence is fine and expected: the deterministic pipeline needs no credentials, and the
+    narrative layer degrades to NARRATIVE_UNAVAILABLE rather than failing the run.
+    """
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
+
+
 def main() -> int:
+    _load_env()
     parser = argparse.ArgumentParser(description="RingWatch pipeline")
     parser.add_argument("--stage", choices=STAGES, default="all")
     args = parser.parse_args()
