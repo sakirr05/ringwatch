@@ -177,10 +177,20 @@ be fabricated. The two honest, defensible claims are:
 
 ## Deliverables checklist
 
-- [ ] Reproducible pipeline: data → temporal split → baseline → graph features → augmented model → evaluation → LLM narratives
-- [ ] `core/evaluate.py` output: baseline AUC-PR, augmented AUC-PR, PR curve, insult-rate costing, honest negative case
-- [ ] Architecture diagram showing the deterministic/AI boundary
-- [ ] README: problem · architecture · deployment · metrics · ground-truth caveat · detection-only · limitations
-- [ ] `FAILURE_LOG.md` with real entries
-- [ ] `VIDEO_SCRIPT.md` for the 5-minute pitch
-- [ ] Tests: temporal-split correctness, graph metric computation, LLM JSON schema validation
+- [x] Reproducible pipeline: data → temporal split → baseline → graph features → augmented model → evaluation → LLM narratives
+- [x] `core/evaluate.py` output: baseline AUC-PR, augmented AUC-PR, PR curve (`docs/pr_curve.png`), insult-rate costing at two operating points, honest negative case with harm broken down by group
+- [x] Architecture diagram showing the deterministic/AI boundary (Mermaid, in README)
+- [x] README: problem · architecture · deployment · metrics · ground-truth caveat · detection-only · limitations
+- [x] `FAILURE_LOG.md` with real entries (pivot, data access, pandas 3.0 dtype, unshippable threshold, the failed hypothesis, cluster-scope bug)
+- [x] `VIDEO_SCRIPT.md` for the 5-minute pitch
+- [x] Tests: temporal-split correctness, graph metrics vs networkx, ring-concentration statistic, LLM JSON schema, number-provenance guard, AI/determinism import boundary — **100 tests**
+
+### Outstanding
+
+- [ ] **Real LLM narratives require an API key.** The layer is implemented, tested, and
+      verified end to end: it selects 12 clusters deterministically and, with no key
+      configured, every one falls back to `NARRATIVE_UNAVAILABLE` with the reason stated.
+      That is the honest failure path working correctly, but the video needs at least one
+      *real* narrative on screen. Set `GEMINI_API_KEY` or `GROQ_API_KEY` in `.env` and run
+      `python run.py --stage narrate`.
+- [ ] Phase 8 (Elliptic stretch dataset) — not started, first thing cut as planned.
