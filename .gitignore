@@ -1,5 +1,12 @@
+# Secrets
 .env
+
+# Data: raw downloads and derived caches are reproducible, never committed
+data/raw/
+data/cache/
 data/out/
+
+# Python
 __pycache__/
 *.pyc
 *.pyo

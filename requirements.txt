@@ -1,1 +1,10 @@
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.4
+lightgbm>=4.3
+networkx>=3.2
+pyarrow>=15.0
+matplotlib>=3.8
+requests>=2.31
+python-dotenv>=1.0
 pytest>=8.0
