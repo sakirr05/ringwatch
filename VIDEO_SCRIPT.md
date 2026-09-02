@@ -63,8 +63,9 @@ Point at the ablation table.
 > excludes zero. It's significantly **worse**."
 
 > "One more thing about this page: it computes nothing. Every number is a committed
-> artifact. A test walks the import graph of the web layer and fails if it can even import a
-> modelling library."
+> artifact produced offline, and the module that feeds this page imports nothing from the
+> analysis code at all — there's a test that walks the import graph and fails if it ever
+> does. The webhook you'll see in a minute *does* compute; this page provably can't."
 
 ## 1:20–2:00 · The reconciliation
 
