@@ -435,6 +435,30 @@ costing elsewhere in this README.
 | + full graph | 0.5168 | 0.4369 | 0.4213 | 0.3329 |
 | + centrality | 0.5134 | **0.4450** | 0.4163 | 0.3302 |
 
+### At the operating point that would actually ship
+
+Value-weighted AUC-PR is threshold-free — it asks whether a model *ranks* high-value fraud
+better. The operational question is narrower: **at the threshold we would deploy, does it
+stop more of the money?** That is the value detection rate, bootstrapped at the existing
+≤1% insult cap with each model holding its own threshold.
+
+| variant | VDR @ cap | Δ | 95% CI | corrected | survives |
+|---|---|---|---|---|---|
+| tabular only | 0.3242 | — | — | — | baseline |
+| + components | 0.3233 | −0.0009 | [−0.0190, +0.0159] | [−0.0273, +0.0212] | no |
+| + k-core | 0.3228 | −0.0016 | [−0.0198, +0.0153] | [−0.0220, +0.0196] | no |
+| + full graph | 0.3329 | +0.0088 | [−0.0099, +0.0261] | [−0.0145, +0.0295] | no |
+| + centrality | 0.3302 | +0.0060 | [−0.0117, +0.0255] | [−0.0162, +0.0291] | no |
+
+**Nothing is significant, corrected or uncorrected.** At the shippable threshold the graph
+layer stops the same share of fraud value as the tabular baseline. `+ full graph` posts the
+largest point estimate, and its interval spans zero even before correcting for the family.
+
+One limitation stated rather than buried: each threshold is chosen once on the full test set
+and held fixed across resamples. That isolates the metric difference, but it means these
+intervals **exclude threshold-selection uncertainty** and are narrower than what a real
+deployment would face.
+
 ### The result that nearly became a false headline
 
 `+ centrality` — hand-implemented PageRank and Brandes betweenness, the algorithms PayPal

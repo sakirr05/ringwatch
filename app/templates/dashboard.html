@@ -5,141 +5,184 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RingWatch — graph-aware fraud ring detection</title>
 <style>
+/* Palette follows Razorpay's own product surfaces -- deep navy, a bright blue accent, and
+   near-white grounds. This is a submission for their buildathon, so it reads in their
+   visual language. No logo, no marks, no claim of affiliation. */
 :root {
-  --ink: #1a1a1a;
-  --muted: #5c5c5c;
-  --faint: #8a8a8a;
-  --rule: #d8d5cf;
-  --bg: #fbfaf8;
+  --navy: #0d1b3e;
+  --navy-2: #16265a;
+  --accent: #3395ff;
+  --accent-2: #1f6fd6;
+  --accent-bg: #eaf3ff;
+  --ink: #16203a;
+  --muted: #55607a;
+  --faint: #8792ab;
+  --rule: #e2e9f4;
+  --bg: #f5f8fd;
   --panel: #ffffff;
-  --det: #2d6a4f;       /* deterministic / core */
-  --det-bg: #edf5ef;
-  --ai: #3d5a99;        /* narrative / LLM */
-  --ai-bg: #eef1f9;
-  --warn: #a33a2a;
-  --warn-bg: #f9eeeb;
+  --det: #0a7d55;
+  --det-bg: #e8f7f0;
+  --ai: #3d5a99;
+  --ai-bg: #eef2fb;
+  --warn: #c0392b;
+  --warn-bg: #fdeeec;
+  --shadow: 0 1px 2px rgba(13,27,62,.06), 0 4px 16px rgba(13,27,62,.05);
+  --radius: 10px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink: #e8e6e2; --muted: #a8a49e; --faint: #7d7a75; --rule: #35322e;
-    --bg: #16150f; --panel: #1d1c17;
-    --det: #7fc79b; --det-bg: #1b2b22;
-    --ai: #9db2e0; --ai-bg: #1a2030;
-    --warn: #e08d7c; --warn-bg: #2e1e1a;
+    --navy: #070d1f; --navy-2: #0e1730;
+    --accent: #5aa9ff; --accent-2: #7cbcff; --accent-bg: #14203a;
+    --ink: #e6ebf5; --muted: #9aa6bf; --faint: #6f7b95; --rule: #1e2942;
+    --bg: #0a1122; --panel: #111a2f;
+    --det: #4ecb95; --det-bg: #10281f;
+    --ai: #93aee4; --ai-bg: #141d33;
+    --warn: #f08a7c; --warn-bg: #2c1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 18px rgba(0,0,0,.25);
   }
 }
 * { box-sizing: border-box; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
-  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-.wrap { max-width: 860px; margin: 0 auto; padding: 3.5rem 1.5rem 6rem; }
-h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 .4rem; letter-spacing: -.02em; }
-h2 {
-  font-size: 1.15rem; margin: 3.5rem 0 .3rem; letter-spacing: -.01em;
-  padding-top: 1.6rem; border-top: 1px solid var(--rule);
-}
-h3 { font-size: .95rem; margin: 1.8rem 0 .5rem; }
-p { margin: .7rem 0; }
-.sub { color: var(--muted); font-size: .95rem; margin-top: 0; }
-.lede { font-size: 1.02rem; }
-code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-a { color: var(--det); }
 
-.meta {
-  font-size: .8rem; color: var(--faint); margin-top: 1.6rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+/* ---- masthead ---- */
+.masthead { background: linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 100%);
+  color: #fff; padding: 3rem 1.5rem 2.6rem; }
+.masthead .inner { max-width: 900px; margin: 0 auto; }
+.masthead h1 { font-size: 2.15rem; line-height: 1.15; margin: 0 0 .5rem;
+  letter-spacing: -.03em; color: #fff; }
+.masthead .tagline { color: #b9c9e8; font-size: 1.02rem; margin: 0 0 1.2rem; max-width: 46rem; }
+.masthead .chips { display: flex; gap: .5rem; flex-wrap: wrap; }
+.chip { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16);
+  color: #dce7fa; font-size: .76rem; padding: .28rem .6rem; border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.chip.live::before { content: "●"; color: #4ade80; margin-right: .35rem; font-size: .7em;
+  vertical-align: 1px; }
+
+.wrap { max-width: 900px; margin: 0 auto; padding: 2.2rem 1.5rem 6rem; }
+h2 {
+  font-size: 1.28rem; margin: 3.2rem 0 .3rem; letter-spacing: -.02em;
+  padding-top: 1.7rem; border-top: 1px solid var(--rule); color: var(--navy);
 }
-.tag {
-  display: inline-block; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase;
-  padding: .16rem .45rem; border-radius: 3px; font-weight: 600; vertical-align: 1px;
-}
+@media (prefers-color-scheme: dark) { h2 { color: var(--ink); } }
+h3, h4 { font-size: .95rem; margin: 1.6rem 0 .5rem; }
+p { margin: .75rem 0; }
+.sub { color: var(--muted); font-size: .95rem; margin-top: 0; }
+.lede { font-size: 1.04rem; color: var(--muted); }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .9em; background: var(--accent-bg); padding: .1em .35em; border-radius: 4px;
+  color: var(--accent-2); }
+a { color: var(--accent-2); text-decoration-color: var(--rule); text-underline-offset: 2px; }
+a:hover { text-decoration-color: var(--accent); }
+
+.meta { font-size: .8rem; color: var(--faint); margin-top: 1.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.tag { display: inline-block; font-size: .68rem; letter-spacing: .06em;
+  text-transform: uppercase; padding: .18rem .5rem; border-radius: 5px;
+  font-weight: 650; vertical-align: 1px; }
 .tag-det { background: var(--det-bg); color: var(--det); }
 .tag-ai  { background: var(--ai-bg);  color: var(--ai); }
 .tag-warn{ background: var(--warn-bg);color: var(--warn); }
 
-table { width: 100%; border-collapse: collapse; margin: 1.1rem 0; font-size: .9rem; }
-th, td { text-align: right; padding: .5rem .55rem; border-bottom: 1px solid var(--rule); }
+table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 1.2rem 0;
+  font-size: .9rem; background: var(--panel); border: 1px solid var(--rule);
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+th, td { text-align: right; padding: .62rem .7rem; border-bottom: 1px solid var(--rule); }
 th:first-child, td:first-child { text-align: left; }
-thead th {
-  font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--faint); font-weight: 600; border-bottom: 1.5px solid var(--rule);
-}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--accent-bg); }
+thead th { font-size: .71rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--faint); font-weight: 650; background: var(--bg); }
 td.num, th.num { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-tr.is-baseline td { font-weight: 600; }
+tr.is-baseline td { font-weight: 650; }
 tr.is-worse td { color: var(--warn); }
 
-.callout {
-  border-left: 3px solid var(--det); background: var(--panel);
-  padding: .9rem 1.1rem; margin: 1.3rem 0; font-size: .93rem;
-}
+.callout { border-left: 3px solid var(--accent); background: var(--panel);
+  padding: 1rem 1.15rem; margin: 1.4rem 0; font-size: .93rem;
+  border-radius: 0 var(--radius) var(--radius) 0; box-shadow: var(--shadow); }
 .callout-warn { border-left-color: var(--warn); }
-.callout h4 { margin: 0 0 .35rem; font-size: .9rem; }
+.callout h4 { margin: 0 0 .4rem; font-size: .9rem; }
 
-.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; margin: 1.2rem 0; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; margin: 1.3rem 0; }
 @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
-.panel { background: var(--panel); border: 1px solid var(--rule); padding: 1rem 1.1rem; }
-.panel h4 { margin: 0 0 .2rem; font-size: .82rem; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--faint); }
-.big { font-size: 1.75rem; font-weight: 600; letter-spacing: -.02em; line-height: 1.15;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.big small { font-size: .8rem; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+.panel { background: var(--panel); border: 1px solid var(--rule); padding: 1.1rem 1.2rem;
+  border-radius: var(--radius); box-shadow: var(--shadow); }
+.panel h4 { margin: 0 0 .35rem; font-size: .74rem; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--faint); font-weight: 650; }
+.big { font-size: 1.95rem; font-weight: 650; letter-spacing: -.03em; line-height: 1.1;
+  color: var(--navy); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+@media (prefers-color-scheme: dark) { .big { color: var(--ink); } }
+.big small { font-size: .78rem; font-weight: 400; color: var(--muted); letter-spacing: 0;
+  font-family: inherit; }
 
-figure { margin: 1.3rem 0; }
-figure img { width: 100%; border: 1px solid var(--rule); background: #fff; }
-figcaption { font-size: .82rem; color: var(--muted); margin-top: .5rem; }
+figure { margin: 1.4rem 0; }
+figure img { width: 100%; border: 1px solid var(--rule); background: #fff;
+  border-radius: var(--radius); box-shadow: var(--shadow); }
+figcaption { font-size: .84rem; color: var(--muted); margin-top: .6rem; }
 
-.cluster { border: 1px solid var(--rule); background: var(--panel); margin: .9rem 0; }
-.cluster > summary {
-  cursor: pointer; padding: .7rem .9rem; font-size: .9rem;
-  display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap;
-}
+.cluster { border: 1px solid var(--rule); background: var(--panel); margin: .7rem 0;
+  border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.cluster > summary { cursor: pointer; padding: .78rem .95rem; font-size: .9rem;
+  display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
 .cluster > summary::-webkit-details-marker { display: none; }
-.cluster > summary:hover { background: var(--det-bg); }
-.cluster .cid { font-weight: 600; font-family: ui-monospace, monospace; }
+.cluster > summary:hover { background: var(--accent-bg); }
+.cluster[open] > summary { border-bottom: 1px solid var(--rule); }
+.cluster .cid { font-weight: 650; font-family: ui-monospace, monospace; color: var(--accent-2); }
 .cluster .gist { color: var(--muted); font-size: .85rem; }
-.cbody { padding: 0 .9rem 1rem; }
-.prov {
-  border-left: 3px solid var(--det); background: var(--det-bg);
-  padding: .55rem .8rem; margin: .7rem 0; font-size: .85rem;
-}
+.cbody { padding: .3rem .95rem 1rem; }
+.prov { border-left: 3px solid var(--det); background: var(--det-bg);
+  padding: .6rem .85rem; margin: .75rem 0; font-size: .86rem; border-radius: 0 6px 6px 0; }
 .prov.ai { border-left-color: var(--ai); background: var(--ai-bg); }
-.prov dl { margin: .4rem 0 0; display: grid; grid-template-columns: auto 1fr;
-  gap: .15rem .8rem; font-size: .84rem; }
+.prov dl { margin: .45rem 0 0; display: grid; grid-template-columns: auto 1fr;
+  gap: .18rem .9rem; font-size: .84rem; }
 .prov dt { color: var(--muted); }
 .prov dd { margin: 0; font-family: ui-monospace, monospace; }
 .overflow { overflow-x: auto; }
 
 /* ---- cluster subgraph + prose provenance ---- */
-.graphwrap { display: grid; grid-template-columns: 200px 1fr; gap: 1rem;
-  align-items: center; margin: .8rem 0; }
+.graphwrap { display: grid; grid-template-columns: 200px 1fr; gap: 1.1rem;
+  align-items: center; margin: .85rem 0; }
 @media (max-width: 600px) { .graphwrap { grid-template-columns: 1fr; } }
-.cgraph { width: 200px; height: 200px; display: block;
-  background: var(--det-bg); border: 1px solid var(--rule); border-radius: 3px; }
-.gcap { margin: 0; font-size: .8rem; }
+.cgraph { width: 200px; height: 200px; display: block; background: var(--bg);
+  border: 1px solid var(--rule); border-radius: var(--radius); }
+.gcap { margin: 0; font-size: .82rem; }
 .ge { stroke: var(--rule); stroke-width: .5; transition: stroke .12s, stroke-width .12s; }
-.gn { transition: fill .12s, r .12s, stroke-width .12s; cursor: default; }
-.gn-entity { fill: var(--det); }
+.gn { transition: fill .12s, r .12s; cursor: default; }
+.gn-entity { fill: var(--accent); }
 .gn-attr   { fill: var(--faint); }
-.cgraph.lit .gn:not(.hit) { opacity: .22; }
-.cgraph.lit .ge:not(.hit) { opacity: .15; }
+.cgraph.lit .gn:not(.hit) { opacity: .2; }
+.cgraph.lit .ge:not(.hit) { opacity: .12; }
 .gn.hit { fill: var(--warn); }
 circle.gn.hit { r: 4.6; }
-.ge.hit { stroke: var(--warn); stroke-width: 1.1; }
+.ge.hit { stroke: var(--warn); stroke-width: 1.2; }
 
-.tr { border-bottom: 1.5px dotted var(--det); cursor: help;
-  background: var(--det-bg); border-radius: 2px; padding: 0 1px; }
+.tr { border-bottom: 1.5px dotted var(--accent); cursor: help; background: var(--accent-bg);
+  border-radius: 3px; padding: 0 2px; }
 .tr:hover, .tr.on { background: var(--warn-bg); border-bottom-color: var(--warn);
   color: var(--warn); }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <h1>RingWatch</h1>
-  <p class="sub">Graph-aware fraud ring detection with a code-enforced AI/determinism
-  boundary. Razorpay AI Buildathon 2026, Track 02.</p>
+<header class="masthead">
+  <div class="inner">
+    <h1>RingWatch</h1>
+    <p class="tagline">Graph-aware fraud detection with a code-enforced AI/determinism
+    boundary. Every number on this page was computed offline; the language model only
+    writes sentences about them.</p>
+    <div class="chips">
+      <span class="chip live">live</span>
+      <span class="chip">Razorpay AI Buildathon 2026 &middot; Track 02</span>
+      <span class="chip">IEEE-CIS &middot; 590,540 transactions</span>
+      <span class="chip">results {{ r.meta.git_commit }}</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
 
   <div class="callout">
     <h4>Detection-only</h4>

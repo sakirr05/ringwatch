@@ -155,6 +155,68 @@ def value_detection_rate(
     return float(amounts[caught].sum() / total_fraud_value)
 
 
+def bootstrap_vdr_delta(
+    y_true: np.ndarray,
+    amounts: np.ndarray,
+    baseline_scores: np.ndarray,
+    variant_scores: np.ndarray,
+    baseline_threshold: float,
+    variant_threshold: float,
+    name: str,
+    n_resamples: int = 400,
+    seed: int = 0,
+    n_comparisons: int = 1,
+):
+    """Paired bootstrap CI for the difference in value detection rate at a fixed operating
+    point.
+
+    Distinct from bootstrapping value-weighted AUC-PR. That is threshold-free and answers
+    "does this model rank high-value fraud better overall". This answers the operational
+    question: "at the threshold we would actually deploy, does this model stop more of the
+    money". A model can win one and lose the other.
+
+    THRESHOLDS ARE HELD FIXED, AND THAT IS A CHOICE
+    -----------------------------------------------
+    Each model's threshold is selected once on the full test set at the <=1% insult cap,
+    then held constant across every resample. Re-selecting it inside each draw would fold
+    threshold-selection uncertainty into the interval, which is a different and larger
+    question; holding it fixed isolates the metric difference at the operating point that
+    would actually ship. The consequence is that these intervals are **narrower than the
+    full uncertainty** a deployment would face, and that limitation is stated rather than
+    buried.
+
+    Reuses `bootstrap_delta` rather than reimplementing the resampling, so the pairing and
+    the Bonferroni handling are identical to every other interval this project reports.
+    """
+    from core.evaluate import bootstrap_delta
+
+    amounts = np.asarray(amounts, dtype=np.float64)
+
+    def make_metric(threshold: float):
+        def metric(resampled_y, resampled_scores, idx):
+            resampled_amounts = amounts[idx]
+            fraud = resampled_y == 1
+            total = resampled_amounts[fraud].sum()
+            if total <= 0:  # no fraud value in this draw; VDR is undefined
+                return None
+            caught = fraud & (resampled_scores >= threshold)
+            return float(resampled_amounts[caught].sum() / total)
+
+        return metric
+
+    return bootstrap_delta(
+        y_true,
+        baseline_scores,
+        variant_scores,
+        make_metric(variant_threshold),
+        name=name,
+        n_resamples=n_resamples,
+        seed=seed,
+        n_comparisons=n_comparisons,
+        baseline_metric=make_metric(baseline_threshold),
+    )
+
+
 @dataclass
 class ValueReport:
     """Value-weighted view of one model, alongside its count-weighted counterpart."""

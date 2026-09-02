@@ -33,6 +33,7 @@ from core.evaluate import (
     evaluate,
 )
 from core.value_metrics import (
+    bootstrap_vdr_delta,
     value_concentration,
     value_detection_rate,
     value_weighted_average_precision,
@@ -493,6 +494,37 @@ def stage_value(df: pd.DataFrame | None = None) -> None:
                 f"[{corrected.ci_low:+.4f}, {corrected.ci_high:+.4f}]   "
                 f"{'YES' if corrected.significant else 'no'}"
             )
+
+    # VDR at the operating point is a different question from threshold-free AP: not
+    # "does it rank high-value fraud better" but "at the threshold we would ship, does it
+    # stop more of the money". Each model keeps its own cap threshold.
+    banner("VALUE DETECTION RATE AT THE <=1% INSULT CAP (paired bootstrap)")
+    print("Thresholds are chosen once on the full test set and held fixed across resamples,")
+    print("so these intervals EXCLUDE threshold-selection uncertainty and are narrower than")
+    print("the uncertainty a real deployment would face.\n")
+    print(f"{'variant':<16} {'VDR':>8} {'delta':>9}  {'95% CI':<22} {'corrected':<22} survives?")
+    print(f"{'tabular only':<16} {value_detection_rate(y_true, baseline, amounts, cap_reports['tabular only'].threshold):>8.4f}"
+          f" {'—':>9}  {'baseline':<22} {'':<22}")
+    for name in list(variants)[1:]:
+        raw = bootstrap_vdr_delta(
+            y_true, amounts, baseline, scores[name],
+            baseline_threshold=cap_reports["tabular only"].threshold,
+            variant_threshold=cap_reports[name].threshold,
+            name=name,
+        )
+        corrected = bootstrap_vdr_delta(
+            y_true, amounts, baseline, scores[name],
+            baseline_threshold=cap_reports["tabular only"].threshold,
+            variant_threshold=cap_reports[name].threshold,
+            name=name, n_comparisons=len(variants) - 1,
+        )
+        vdr = value_detection_rate(y_true, scores[name], amounts, cap_reports[name].threshold)
+        print(
+            f"{name:<16} {vdr:>8.4f} {raw.delta:>+9.4f}  "
+            f"[{raw.ci_low:+.4f}, {raw.ci_high:+.4f}]   "
+            f"[{corrected.ci_low:+.4f}, {corrected.ci_high:+.4f}]   "
+            f"{'YES' if corrected.significant else 'no'}"
+        )
 
     print("\n  Predicted in advance: value-weighted intervals should be WIDER, because the")
     print("  top 1% of frauds carry ~11% of fraud value and resampling them swings hard.")

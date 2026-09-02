@@ -238,3 +238,105 @@ def test_weighted_bootstrap_detects_a_value_effect():
     )
     assert delta.delta > 0
     assert delta.ci_low > 0
+
+
+# --------------------------------------------------------------------------
+# VDR bootstrap — the operating-point question, distinct from threshold-free AP
+# --------------------------------------------------------------------------
+
+
+def test_vdr_bootstrap_is_zero_for_identical_models():
+    """Same scores and same threshold: the models are indistinguishable by construction.
+
+    Every resample computes VDR minus itself, so the delta is exactly zero and the interval
+    collapses onto it. A non-zero result here would mean the resampling is not paired.
+    """
+    from core.value_metrics import bootstrap_vdr_delta
+
+    rng = np.random.default_rng(0)
+    n = 500
+    y = (rng.random(n) < 0.08).astype(int)
+    scores = rng.random(n)
+    amounts = rng.exponential(scale=150.0, size=n) + 1.0
+
+    delta = bootstrap_vdr_delta(
+        y,
+        amounts,
+        scores,
+        scores,
+        baseline_threshold=0.5,
+        variant_threshold=0.5,
+        name="self",
+        n_resamples=40,
+        seed=0,
+    )
+    assert abs(delta.delta) < 1e-12
+    assert abs(delta.ci_low) < 1e-12
+    assert abs(delta.ci_high) < 1e-12
+    assert not delta.significant
+
+
+def test_vdr_bootstrap_detects_a_model_that_catches_the_expensive_fraud():
+    """A model that stops the money must beat one that stops the cheap frauds.
+
+    Fraud value here is deliberately heavy-tailed, so catching the few large frauds is
+    what moves VDR. If this did not fire, a null on the real data would be uninformative.
+    """
+    from core.value_metrics import bootstrap_vdr_delta
+
+    rng = np.random.default_rng(1)
+    n = 800
+    y = (rng.random(n) < 0.12).astype(int)
+    amounts = np.where(y == 1, rng.exponential(4_000, n), rng.exponential(60, n)) + 1.0
+
+    # One model scores the expensive frauds above the threshold; the other is noise.
+    # Scaling amounts into [0,1] directly would not work: on an exponential the max is far
+    # above the bulk, so almost every fraud would land under 0.5 and the "value-aware"
+    # model would catch nothing at all.
+    fraud_median = np.median(amounts[y == 1])
+    value_aware = np.where((y == 1) & (amounts >= fraud_median), 0.9, 0.1)
+    noise = rng.random(n)
+
+    delta = bootstrap_vdr_delta(
+        y,
+        amounts,
+        noise,
+        value_aware,
+        baseline_threshold=0.5,
+        variant_threshold=0.5,
+        name="value-aware",
+        n_resamples=60,
+        seed=0,
+    )
+    assert delta.delta > 0
+    assert delta.ci_low > 0
+
+
+def test_vdr_bootstrap_respects_each_models_own_threshold():
+    """Thresholds are per-model, because each picks its own at the insult cap.
+
+    Passing them explicitly rather than inferring from call order is what keeps this
+    correct; an earlier version alternated by call count and would have broken silently
+    if the caller ever reordered its evaluations.
+    """
+    from core.value_metrics import bootstrap_vdr_delta
+
+    y = np.array([1, 1, 0, 0] * 50)
+    amounts = np.array([100.0, 900.0, 10.0, 10.0] * 50)
+    scores = np.array([0.6, 0.4, 0.1, 0.1] * 50)
+
+    # Same scores both sides, but the variant uses a threshold low enough to catch the
+    # expensive fraud while the baseline's does not.
+    delta = bootstrap_vdr_delta(
+        y,
+        amounts,
+        scores,
+        scores,
+        baseline_threshold=0.5,
+        variant_threshold=0.3,
+        name="lower threshold",
+        n_resamples=40,
+        seed=0,
+    )
+    # The 900-value fraud scores 0.4: caught at 0.3, missed at 0.5.
+    assert delta.delta > 0.5

@@ -181,6 +181,64 @@ class DeltaReport:
         )
 
 
+def bootstrap_delta(
+    y_true: np.ndarray,
+    baseline_scores: np.ndarray,
+    variant_scores: np.ndarray,
+    metric,
+    name: str,
+    n_resamples: int = 400,
+    seed: int = 0,
+    n_comparisons: int = 1,
+    baseline_metric=None,
+) -> DeltaReport:
+    """Paired bootstrap CI for the difference in ANY metric between two models.
+
+    The resampling machinery is identical whichever metric is being compared, so it lives
+    here once and takes the metric as a parameter. `metric(y_resampled, scores_resampled)`
+    returns a float, or None when the resample is degenerate (no positives, or no positive
+    value) and the comparison is undefined -- those draws are scored as a zero difference
+    rather than dropped, which keeps the interval conservative.
+
+    WHY PAIRED
+    ----------
+    Both models are evaluated on the SAME resampled indices every draw. Test-set variation
+    that affects them equally cancels, so the interval reflects the difference between the
+    models rather than the noisiness of the test set. Unpaired resampling would produce
+    intervals wide enough to hide any real effect.
+    """
+    y_true = np.asarray(y_true).astype(int)
+    rng = np.random.default_rng(seed)
+    n = len(y_true)
+
+    deltas = np.empty(n_resamples, dtype=np.float64)
+    for i in range(n_resamples):
+        idx = rng.integers(0, n, size=n)
+        resampled_y = y_true[idx]
+        variant_value = metric(resampled_y, variant_scores[idx], idx)
+        baseline_value = (baseline_metric or metric)(
+            resampled_y, baseline_scores[idx], idx
+        )
+        deltas[i] = (
+            0.0
+            if variant_value is None or baseline_value is None
+            else variant_value - baseline_value
+        )
+
+    # Bonferroni: split the 5% error budget across the whole family of comparisons, so an
+    # interval taken from one of eight tests is not read as though it were the only one.
+    tail = 5.0 / (2 * max(n_comparisons, 1))
+    low, high = np.percentile(deltas, [tail, 100 - tail])
+    return DeltaReport(
+        name=name,
+        delta=float(deltas.mean()),
+        ci_low=float(low),
+        ci_high=float(high),
+        n_resamples=n_resamples,
+        n_comparisons=n_comparisons,
+    )
+
+
 def bootstrap_auc_pr_delta(
     y_true: np.ndarray,
     baseline_scores: np.ndarray,
@@ -196,54 +254,39 @@ def bootstrap_auc_pr_delta(
     WHY THIS IS NOT OPTIONAL
     ------------------------
     A single-run AUC-PR difference of 0.002 is not a result, it is a number. Both models
-    are scored on the same 118,108 rows containing 4,064 fraud cases, and resampling
-    those rows shows how much of any observed gap is just which transactions happened to
-    land in the test period.
+    are scored on the same 118,108 rows containing 4,064 fraud cases, and resampling those
+    rows shows how much of any observed gap is just which transactions happened to land in
+    the test period.
 
     Reporting a raw delta without this interval is how projects claim lifts that do not
     exist. Here it is what separates "the graph layer helps a little" from "the graph
     layer does nothing measurable", and the honest answer turned out to be the second.
 
-    The resampling is paired -- both models are evaluated on the same resampled indices --
-    so the comparison is not inflated by test-set variation that affects them equally.
+    `sample_weight` turns this into the value-weighted comparison without changing the
+    estimator, the pairing, or the resampling. Default None reproduces the count-weighted
+    behaviour exactly, so every previously reported interval is unaffected.
     """
-    y_true = np.asarray(y_true).astype(int)
-    rng = np.random.default_rng(seed)
-    n = len(y_true)
-
-    # `sample_weight` turns this into the value-weighted comparison without changing the
-    # estimator, the pairing, or the resampling. Default None reproduces the count-weighted
-    # behaviour exactly, so every previously reported interval is unaffected.
     weights = None if sample_weight is None else np.asarray(sample_weight, dtype=np.float64)
 
-    deltas = np.empty(n_resamples, dtype=np.float64)
-    for i in range(n_resamples):
-        idx = rng.integers(0, n, size=n)
-        resampled_y = y_true[idx]
+    def metric(resampled_y, resampled_scores, idx):
         if resampled_y.sum() == 0:  # degenerate resample, no positives
-            deltas[i] = 0.0
-            continue
+            return None
         resampled_weights = None if weights is None else weights[idx]
         if resampled_weights is not None and resampled_weights[resampled_y == 1].sum() <= 0:
             # No positive VALUE in this resample: the value-weighted metric is undefined.
-            deltas[i] = 0.0
-            continue
-        deltas[i] = average_precision_score(
-            resampled_y, variant_scores[idx], sample_weight=resampled_weights
-        ) - average_precision_score(
-            resampled_y, baseline_scores[idx], sample_weight=resampled_weights
+            return None
+        return average_precision_score(
+            resampled_y, resampled_scores, sample_weight=resampled_weights
         )
 
-    # Bonferroni: split the 5% error budget across the whole family of comparisons, so an
-    # interval taken from one of eight tests is not read as though it were the only one.
-    tail = 5.0 / (2 * max(n_comparisons, 1))
-    low, high = np.percentile(deltas, [tail, 100 - tail])
-    return DeltaReport(
+    return bootstrap_delta(
+        y_true,
+        baseline_scores,
+        variant_scores,
+        metric,
         name=name,
-        delta=float(deltas.mean()),
-        ci_low=float(low),
-        ci_high=float(high),
         n_resamples=n_resamples,
+        seed=seed,
         n_comparisons=n_comparisons,
     )
 
