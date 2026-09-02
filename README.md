@@ -229,6 +229,83 @@ flowchart TB
     style SCHEMA fill:#dde6f7,stroke:#3d5a99,stroke-width:2px
 ```
 
+### The latency boundary
+
+The two halves of the system run on completely different clocks, and conflating them is
+how "AI-powered fraud detection" ends up meaning "an LLM is in your payment path." It is
+not. The fast path never waits for the model.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant RZP as Razorpay
+    participant API as FastAPI receiver
+    participant G as core/graph_incremental
+    participant DB as SQLite
+    participant LLM as Gemini
+
+    rect rgb(237, 245, 239)
+    note over RZP,DB: FAST PATH — deterministic, in the request
+    RZP->>API: POST /webhooks/razorpay (raw bytes)
+    API->>API: HMAC-SHA256 over raw body (~µs)
+    API->>DB: INSERT event_id (PK collision = replay)
+    API-->>RZP: 200 accepted
+    note right of API: returned BEFORE any analysis;<br/>Razorpay disables endpoints >5s
+    end
+
+    rect rgb(238, 241, 249)
+    note over API,LLM: SLOW PATH — after the response is sent
+    API->>G: insert_edge(u, v)
+    G-->>API: core numbers repaired — 2.0 µs/edge
+    note right of G: local subcore repair,<br/>2.8 candidates touched,<br/>not an O(V+E) rebuild
+    API->>LLM: narrate(frozen evidence)
+    LLM-->>API: schema-validated JSON prose
+    note right of LLM: seconds. Never on the<br/>request path, never near a number.
+    end
+```
+
+The gap is roughly six orders of magnitude: **2.0 µs** to repair the graph against
+**seconds** for prose. That is the entire argument for keeping them apart.
+
+### The stack, as it actually runs
+
+```mermaid
+flowchart LR
+    subgraph LOCAL["LOCAL — has the 683 MB dataset"]
+        direction TB
+        D[IEEE-CIS<br/>590,540 transactions] --> S[temporal split<br/>80th percentile]
+        S --> M[LightGBM<br/>CPU, seed 42]
+        S --> GR[entity graph<br/>components + k-core]
+        M --> EV[evaluate<br/>AUC-PR · bootstrap CIs<br/>insult costing · calibration]
+        GR --> EV
+        EV --> EX[scripts/export_results.py]
+    end
+
+    EX -->|committed artifact| RJ[(docs/results.json<br/>87 KB)]
+
+    subgraph RENDER["DEPLOYED — has neither dataset nor cache"]
+        direction TB
+        RJ --> APP[FastAPI + Jinja2]
+        APP --> DASH[dashboard<br/>renders, computes nothing]
+        WH[POST /webhooks/razorpay] --> APP
+        APP --> LG[live entity graph<br/>components + k-core]
+        APP --> DS[demo scorer<br/>3 of 433 features]
+    end
+
+    RZP[Razorpay test mode] -->|signed webhook| WH
+    AI[Gemini → Groq fallback] -.->|prose only, offline batch| EX
+
+    style LOCAL fill:#edf5ef,stroke:#2d6a4f,stroke-width:2px
+    style RENDER fill:#eef1f9,stroke:#3d5a99,stroke-width:2px
+    style RJ fill:#fff4e0,stroke:#b06500,stroke-width:2px
+    style AI fill:#eef1f9,stroke:#3d5a99
+```
+
+The orange artifact in the middle is the whole architecture: **everything left of it
+computes, everything right of it renders.** `data/raw/` and `data/cache/` are gitignored,
+so the deployed instance physically cannot recompute a reported metric even if the code
+tried.
+
 **How the boundary is enforced** — not by convention, but by three mechanisms:
 
 1. **One-way imports.** `core/` imports `ai.contract` to build the handover object.

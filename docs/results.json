@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generated_at": "2026-09-02T12:36:42+00:00",
-    "git_commit": "4a76c32",
+    "generated_at": "2026-09-02T18:44:35+00:00",
+    "git_commit": "90f0f8d",
     "note": "Produced by scripts/export_results.py from cached model scores. The web app renders this file and computes nothing."
   },
   "dataset": {
@@ -409,13 +409,333 @@
         "max_risk_score": 0.9963,
         "mean_risk_score": 0.3325
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e4161",
+            "kind": "entity",
+            "label": "10181_343_53",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e4162",
+            "kind": "entity",
+            "label": "10181_512_147",
+            "x": 67.0,
+            "y": 20.56
+          },
+          {
+            "id": "e21140",
+            "kind": "entity",
+            "label": "11678_194_169",
+            "x": 79.44,
+            "y": 33.0
+          },
+          {
+            "id": "e21141",
+            "kind": "entity",
+            "label": "11678_512_120",
+            "x": 84.0,
+            "y": 50.0
+          },
+          {
+            "id": "e45802",
+            "kind": "entity",
+            "label": "13629_512_-48",
+            "x": 79.44,
+            "y": 67.0
+          },
+          {
+            "id": "e45803",
+            "kind": "entity",
+            "label": "13629_512_11",
+            "x": 67.0,
+            "y": 79.44
+          },
+          {
+            "id": "e45804",
+            "kind": "entity",
+            "label": "13629_512_179",
+            "x": 50.0,
+            "y": 84.0
+          },
+          {
+            "id": "e45805",
+            "kind": "entity",
+            "label": "13629_512_83",
+            "x": 33.0,
+            "y": 79.44
+          },
+          {
+            "id": "e69958",
+            "kind": "entity",
+            "label": "1577_512_8",
+            "x": 20.56,
+            "y": 67.0
+          },
+          {
+            "id": "e93100",
+            "kind": "entity",
+            "label": "17480_194_12",
+            "x": 16.0,
+            "y": 50.0
+          },
+          {
+            "id": "e109976",
+            "kind": "entity",
+            "label": "2455_194_21",
+            "x": 20.56,
+            "y": 33.0
+          },
+          {
+            "id": "e139831",
+            "kind": "entity",
+            "label": "5222_512_109",
+            "x": 33.0,
+            "y": 20.56
+          },
+          {
+            "id": "a199179",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": -6.0,
+            "y": 50.0
+          },
+          {
+            "id": "a199544",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 10.0,
+            "y": 50.0
+          },
+          {
+            "id": "a199619",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 26.0,
+            "y": 50.0
+          },
+          {
+            "id": "a200030",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 42.0,
+            "y": 50.0
+          },
+          {
+            "id": "a200550",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 58.0,
+            "y": 50.0
+          },
+          {
+            "id": "a203939",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 74.0,
+            "y": 50.0
+          },
+          {
+            "id": "a204354",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 90.0,
+            "y": 50.0
+          },
+          {
+            "id": "a204891",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 106.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e4161",
+            "target": "a199619"
+          },
+          {
+            "source": "e4161",
+            "target": "a203939"
+          },
+          {
+            "source": "e4162",
+            "target": "a199544"
+          },
+          {
+            "source": "e4162",
+            "target": "a199619"
+          },
+          {
+            "source": "e4162",
+            "target": "a203939"
+          },
+          {
+            "source": "e21140",
+            "target": "a199179"
+          },
+          {
+            "source": "e21140",
+            "target": "a200030"
+          },
+          {
+            "source": "e21140",
+            "target": "a204354"
+          },
+          {
+            "source": "e21141",
+            "target": "a199544"
+          },
+          {
+            "source": "e21141",
+            "target": "a200030"
+          },
+          {
+            "source": "e21141",
+            "target": "a204354"
+          },
+          {
+            "source": "e45802",
+            "target": "a200550"
+          },
+          {
+            "source": "e45802",
+            "target": "a204891"
+          },
+          {
+            "source": "e45803",
+            "target": "a200550"
+          },
+          {
+            "source": "e45803",
+            "target": "a204891"
+          },
+          {
+            "source": "e45804",
+            "target": "a199544"
+          },
+          {
+            "source": "e45804",
+            "target": "a200550"
+          },
+          {
+            "source": "e45804",
+            "target": "a204891"
+          },
+          {
+            "source": "e45805",
+            "target": "a200550"
+          },
+          {
+            "source": "e45805",
+            "target": "a204891"
+          },
+          {
+            "source": "e69958",
+            "target": "a199544"
+          },
+          {
+            "source": "e93100",
+            "target": "a199179"
+          },
+          {
+            "source": "e109976",
+            "target": "a199179"
+          },
+          {
+            "source": "e139831",
+            "target": "a199544"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "UNEXPLAINED",
         "confidence": "low",
         "human_summary": "This cluster, identified as cluster_id 0, contains 3 entities connected via an indirect attribute chain within a connected component size of 12. Over an activity span of 32 days, 3 transactions occurred totaling INR 23399.20 using 3 distinct cards, 2 distinct addresses, and 2 distinct email domains. Exactly 1 transaction was flagged by the model, yielding a max risk score of 0.9963, whereas the mean risk score is 0.3325. With a k core number of 2 and a max entity degree of 3, the evidence shows loose structural linkage without a definitive fraud pattern.",
         "suggested_action": "Inspect the 1 transaction flagged by the model to determine if the indirect attribute chain represents genuine risk or benign overlap.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "This cluster, identified as cluster_id 0, contains ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "entity_count",
+            "target": "entities"
+          },
+          {
+            "text": " entities connected via an indirect attribute chain within a connected component size of 12. Over an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "32",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days, ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "entity_count",
+            "target": "entities"
+          },
+          {
+            "text": " transactions occurred totaling INR ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "23399.20",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " using ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "entity_count",
+            "target": "entities"
+          },
+          {
+            "text": " distinct cards, 2 distinct addresses, and 2 distinct email domains. Exactly 1 transaction was flagged by the model, yielding a max risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.9963",
+            "field": "max_risk_score",
+            "target": "all"
+          },
+          {
+            "text": ", whereas the mean risk score is 0.3325. With a k core number of 2 and a max entity degree of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "entity_count",
+            "target": "entities"
+          },
+          {
+            "text": ", the evidence shows loose structural linkage without a definitive fraud pattern.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -439,13 +759,156 @@
         "max_risk_score": 0.9908,
         "mean_risk_score": 0.8228
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e48756",
+            "kind": "entity",
+            "label": "13998_299_157",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e48757",
+            "kind": "entity",
+            "label": "13998_325_24",
+            "x": 79.44,
+            "y": 67.0
+          },
+          {
+            "id": "e48758",
+            "kind": "entity",
+            "label": "13998_343_171",
+            "x": 20.56,
+            "y": 67.0
+          },
+          {
+            "id": "a200651",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 42.0,
+            "y": 50.0
+          },
+          {
+            "id": "a204992",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 58.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e48756",
+            "target": "a200651"
+          },
+          {
+            "source": "e48756",
+            "target": "a204992"
+          },
+          {
+            "source": "e48757",
+            "target": "a200651"
+          },
+          {
+            "source": "e48757",
+            "target": "a204992"
+          },
+          {
+            "source": "e48758",
+            "target": "a200651"
+          },
+          {
+            "source": "e48758",
+            "target": "a204992"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "SHARED_CREDENTIAL_REUSE",
         "confidence": "medium",
         "human_summary": "This cluster contains 2 entities and 2 transactions spanning an activity span of 13 days, totaling 19800.00 INR, both of which were flagged by the model. The entities share 1 distinct card (card1) and 1 distinct email domain (P_emaildomain) across 2 distinct addresses, forming a connected component size of 3 with a k-core number of 2 and a max entity degree of 2. It was flagged by the model with a max risk score of 0.9908 and a mean risk score of 0.8228, indicating potential shared credential or card reuse across separate delivery addresses.",
         "suggested_action": "Verify whether the owner of card1 authorized the transactions across the 2 distinct addresses.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "This cluster contains 2 entities and 2 transactions spanning an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "13",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days, totaling ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "19800.00",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR, both of which were flagged by the model. The entities share 1 distinct card (",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "card1",
+            "field": "attribute:card1",
+            "target": "attr:card1"
+          },
+          {
+            "text": ") and 1 distinct email domain (",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "P_emaildomain",
+            "field": "attribute:P_emaildomain",
+            "target": "attr:P_emaildomain"
+          },
+          {
+            "text": ") across 2 distinct addresses, forming a connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": " with a k-core number of 2 and a max entity degree of 2. It was flagged by the model with a max risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.9908",
+            "field": "max_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " and a mean risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.8228",
+            "field": "mean_risk_score",
+            "target": "all"
+          },
+          {
+            "text": ", indicating potential shared credential or card reuse across separate delivery addresses.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -468,13 +931,166 @@
         "max_risk_score": 0.9882,
         "mean_risk_score": 0.5116
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e127504",
+            "kind": "entity",
+            "label": "3804_123_170",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e127505",
+            "kind": "entity",
+            "label": "3804_158_167",
+            "x": 82.34,
+            "y": 39.49
+          },
+          {
+            "id": "e127506",
+            "kind": "entity",
+            "label": "3804_204_-474",
+            "x": 69.98,
+            "y": 77.51
+          },
+          {
+            "id": "e127507",
+            "kind": "entity",
+            "label": "3804_253_13",
+            "x": 30.02,
+            "y": 77.51
+          },
+          {
+            "id": "e127508",
+            "kind": "entity",
+            "label": "3804_420_16",
+            "x": 17.66,
+            "y": 39.49
+          },
+          {
+            "id": "a202371",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 42.0,
+            "y": 50.0
+          },
+          {
+            "id": "a206731",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 58.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e127504",
+            "target": "a202371"
+          },
+          {
+            "source": "e127504",
+            "target": "a206731"
+          },
+          {
+            "source": "e127505",
+            "target": "a202371"
+          },
+          {
+            "source": "e127505",
+            "target": "a206731"
+          },
+          {
+            "source": "e127506",
+            "target": "a202371"
+          },
+          {
+            "source": "e127506",
+            "target": "a206731"
+          },
+          {
+            "source": "e127507",
+            "target": "a202371"
+          },
+          {
+            "source": "e127507",
+            "target": "a206731"
+          },
+          {
+            "source": "e127508",
+            "target": "a202371"
+          },
+          {
+            "source": "e127508",
+            "target": "a206731"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "SHARED_CREDENTIAL_REUSE",
         "confidence": "medium",
         "human_summary": "Cluster 2 involves 2 entities linked by 1 payment card, card1, across 2 distinct email domains and 2 distinct addresses over an activity span of 3 days. Out of 2 transactions totaling 42680.00 INR, 1 transaction was flagged by the model, generating a max risk score of 0.9882 and a mean risk score of 0.5116. Graph analysis shows a connected component size of 5, a k-core number of 2, and a max entity degree of 2, indicating potential credential sharing across different user identities.",
         "suggested_action": "Inspect the flagged transaction associated with card1 to confirm whether the cardholder authorized purchases across the 2 distinct email domains and addresses.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "Cluster 2 involves 2 entities linked by 1 payment card, ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "card1",
+            "field": "attribute:card1",
+            "target": "attr:card1"
+          },
+          {
+            "text": ", across 2 distinct email domains and 2 distinct addresses over an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days. Out of 2 transactions totaling ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "42680.00",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR, 1 transaction was flagged by the model, generating a max risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.9882",
+            "field": "max_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " and a mean risk score of 0.5116. Graph analysis shows a connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "5",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": ", a k-core number of 2, and a max entity degree of 2, indicating potential credential sharing across different user identities.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -498,13 +1114,298 @@
         "max_risk_score": 0.9791,
         "mean_risk_score": 0.926
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e14697",
+            "kind": "entity",
+            "label": "11019_432_174",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e20023",
+            "kind": "entity",
+            "label": "11467_102_12",
+            "x": 68.38,
+            "y": 21.4
+          },
+          {
+            "id": "e20024",
+            "kind": "entity",
+            "label": "11467_351_12",
+            "x": 80.93,
+            "y": 35.88
+          },
+          {
+            "id": "e20025",
+            "kind": "entity",
+            "label": "11467_432_114",
+            "x": 83.65,
+            "y": 54.84
+          },
+          {
+            "id": "e43428",
+            "kind": "entity",
+            "label": "13409_432_17",
+            "x": 75.7,
+            "y": 72.27
+          },
+          {
+            "id": "e43429",
+            "kind": "entity",
+            "label": "13409_536_-393",
+            "x": 59.58,
+            "y": 82.62
+          },
+          {
+            "id": "e93891",
+            "kind": "entity",
+            "label": "17560_102_0",
+            "x": 40.42,
+            "y": 82.62
+          },
+          {
+            "id": "e124133",
+            "kind": "entity",
+            "label": "3489_102_7",
+            "x": 24.3,
+            "y": 72.27
+          },
+          {
+            "id": "e124140",
+            "kind": "entity",
+            "label": "3489_432_173",
+            "x": 16.35,
+            "y": 54.84
+          },
+          {
+            "id": "e140144",
+            "kind": "entity",
+            "label": "5284_102_6",
+            "x": 19.07,
+            "y": 35.88
+          },
+          {
+            "id": "e182516",
+            "kind": "entity",
+            "label": "8453_432_16",
+            "x": 31.62,
+            "y": 21.4
+          },
+          {
+            "id": "a199073",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": -6.0,
+            "y": 50.0
+          },
+          {
+            "id": "a199961",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 10.0,
+            "y": 50.0
+          },
+          {
+            "id": "a200491",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 26.0,
+            "y": 50.0
+          },
+          {
+            "id": "a204284",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 42.0,
+            "y": 50.0
+          },
+          {
+            "id": "a204831",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 58.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208304",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 74.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208320",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 90.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208325",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 106.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e14697",
+            "target": "a208325"
+          },
+          {
+            "source": "e20023",
+            "target": "a199073"
+          },
+          {
+            "source": "e20023",
+            "target": "a199961"
+          },
+          {
+            "source": "e20023",
+            "target": "a204284"
+          },
+          {
+            "source": "e20023",
+            "target": "a208320"
+          },
+          {
+            "source": "e20024",
+            "target": "a199961"
+          },
+          {
+            "source": "e20024",
+            "target": "a204284"
+          },
+          {
+            "source": "e20025",
+            "target": "a199961"
+          },
+          {
+            "source": "e20025",
+            "target": "a204284"
+          },
+          {
+            "source": "e20025",
+            "target": "a208325"
+          },
+          {
+            "source": "e43428",
+            "target": "a200491"
+          },
+          {
+            "source": "e43428",
+            "target": "a204831"
+          },
+          {
+            "source": "e43428",
+            "target": "a208325"
+          },
+          {
+            "source": "e43429",
+            "target": "a200491"
+          },
+          {
+            "source": "e43429",
+            "target": "a204831"
+          },
+          {
+            "source": "e93891",
+            "target": "a208304"
+          },
+          {
+            "source": "e124133",
+            "target": "a199073"
+          },
+          {
+            "source": "e124133",
+            "target": "a208320"
+          },
+          {
+            "source": "e124140",
+            "target": "a208325"
+          },
+          {
+            "source": "e140144",
+            "target": "a199073"
+          },
+          {
+            "source": "e140144",
+            "target": "a208304"
+          },
+          {
+            "source": "e182516",
+            "target": "a208325"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "SHARED_CREDENTIAL_REUSE",
         "confidence": "medium",
         "human_summary": "Cluster 3 contains 2 entities and 2 transactions, both of which were flagged by the upstream model. Across an activity span of 0 days, 2 distinct cards were used with 1 distinct address and 1 distinct email domain, sharing the addr1 and P_emaildomain attributes. The cluster accounts for a total amount of 44000.00 INR within a connected component size of 11, featuring a k-core number of 1 and a max entity degree of 1. The model flagged these transactions with a max risk score of 0.9791 and a mean risk score of 0.9260.",
         "suggested_action": "Verify whether the 2 distinct cards sharing 1 address and email domain represent legitimate shared household transactions or credential reuse.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "Cluster 3 contains 2 entities and 2 transactions, both of which were flagged by the upstream model. Across an activity span of 0 days, 2 distinct cards were used with 1 distinct address and 1 distinct email domain, sharing the ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "addr1",
+            "field": "attribute:addr1",
+            "target": "attr:addr1"
+          },
+          {
+            "text": " and ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "P_emaildomain",
+            "field": "attribute:P_emaildomain",
+            "target": "attr:P_emaildomain"
+          },
+          {
+            "text": " attributes. The cluster accounts for a total amount of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "44000.00",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR within a connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "11",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": ", featuring a k-core number of 1 and a max entity degree of 1. The model flagged these transactions with a max risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.9791",
+            "field": "max_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " and a mean risk score of 0.9260.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -527,13 +1428,170 @@
         "max_risk_score": 0.9502,
         "mean_risk_score": 0.4779
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e42831",
+            "kind": "entity",
+            "label": "13335_284_105",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e42832",
+            "kind": "entity",
+            "label": "13335_284_71",
+            "x": 79.44,
+            "y": 33.0
+          },
+          {
+            "id": "e42833",
+            "kind": "entity",
+            "label": "13335_483_12",
+            "x": 79.44,
+            "y": 67.0
+          },
+          {
+            "id": "e63794",
+            "kind": "entity",
+            "label": "15146_483_176",
+            "x": 50.0,
+            "y": 84.0
+          },
+          {
+            "id": "e83146",
+            "kind": "entity",
+            "label": "16746_483_5",
+            "x": 20.56,
+            "y": 67.0
+          },
+          {
+            "id": "e83147",
+            "kind": "entity",
+            "label": "16746_483_7",
+            "x": 20.56,
+            "y": 33.0
+          },
+          {
+            "id": "a200471",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 34.0,
+            "y": 50.0
+          },
+          {
+            "id": "a204812",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 50.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208836",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 66.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e42831",
+            "target": "a200471"
+          },
+          {
+            "source": "e42831",
+            "target": "a204812"
+          },
+          {
+            "source": "e42832",
+            "target": "a200471"
+          },
+          {
+            "source": "e42832",
+            "target": "a204812"
+          },
+          {
+            "source": "e42833",
+            "target": "a200471"
+          },
+          {
+            "source": "e42833",
+            "target": "a204812"
+          },
+          {
+            "source": "e42833",
+            "target": "a208836"
+          },
+          {
+            "source": "e63794",
+            "target": "a208836"
+          },
+          {
+            "source": "e83146",
+            "target": "a208836"
+          },
+          {
+            "source": "e83147",
+            "target": "a208836"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "UNEXPLAINED",
         "confidence": "low",
         "human_summary": "This cluster of 2 entities was flagged after 1 of its 2 transactions received a maximum risk score of 0.9502, resulting in a mean risk score of 0.4779. The cluster accumulated a total amount of 19493.05 INR across an activity span of 33 days. The entities are linked through an indirect attribute chain within a connected component size of 6, featuring a k-core number of 2 and a max entity degree of 2. Because the cluster contains 2 distinct cards, 2 distinct addresses, and 2 distinct email domains without direct attribute sharing, the underlying linkages do not conclusively indicate a specific fraud scheme.",
         "suggested_action": "Review the individual transaction flagged with a risk score of 0.9502 and examine the intermediate hops forming the indirect attribute chain.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "This cluster of 2 entities was flagged after 1 of its 2 transactions received a maximum risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.9502",
+            "field": "max_risk_score",
+            "target": "all"
+          },
+          {
+            "text": ", resulting in a mean risk score of 0.4779. The cluster accumulated a total amount of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "19493.05",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR across an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "33",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days. The entities are linked through an indirect attribute chain within a connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "6",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": ", featuring a k-core number of 2 and a max entity degree of 2. Because the cluster contains 2 distinct cards, 2 distinct addresses, and 2 distinct email domains without direct attribute sharing, the underlying linkages do not conclusively indicate a specific fraud scheme.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -556,13 +1614,118 @@
         "max_risk_score": 0.9378,
         "mean_risk_score": 0.4706
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e82516",
+            "kind": "entity",
+            "label": "16659_536_88",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e130415",
+            "kind": "entity",
+            "label": "4121_536_22",
+            "x": 84.0,
+            "y": 50.0
+          },
+          {
+            "id": "e148246",
+            "kind": "entity",
+            "label": "6019_536_176",
+            "x": 50.0,
+            "y": 84.0
+          },
+          {
+            "id": "e166683",
+            "kind": "entity",
+            "label": "7585_536_151",
+            "x": 16.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208773",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 50.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e82516",
+            "target": "a208773"
+          },
+          {
+            "source": "e130415",
+            "target": "a208773"
+          },
+          {
+            "source": "e148246",
+            "target": "a208773"
+          },
+          {
+            "source": "e166683",
+            "target": "a208773"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "BENIGN_COINCIDENCE",
         "confidence": "high",
         "human_summary": "Cluster 5 consists of 2 entities and 2 transactions across an activity span of 25 days, linked solely by a shared address attribute, addr1. The cluster contains 2 distinct cards and 2 distinct email domains, with a connected component size of 4, a k_core_number of 1, and a max entity degree of 1. A total amount of 40475.60 INR was processed, where 1 transaction was flagged by the model, generating a max risk score of 0.9378 and a mean risk score of 0.4706. The low connectivity and extended activity window suggest benign shared infrastructure, such as a co-located household or business address, rather than an organized fraud pattern.",
         "suggested_action": "Verify if the shared address represents legitimate co-location and review the single flagged transaction before taking restrictive action.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "Cluster 5 consists of 2 entities and 2 transactions across an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "25",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days, linked solely by a shared address attribute, addr1. The cluster contains 2 distinct cards and 2 distinct email domains, with a connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "4",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": ", a k_core_number of 1, and a max entity degree of 1. A total amount of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "40475.60",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR was processed, where 1 transaction was flagged by the model, generating a max risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.9378",
+            "field": "max_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " and a mean risk score of 0.4706. The low connectivity and extended activity window suggest benign shared infrastructure, such as a co-located household or business address, rather than an organized fraud pattern.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -586,13 +1749,185 @@
         "max_risk_score": 0.9024,
         "mean_risk_score": 0.2373
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e1528",
+            "kind": "entity",
+            "label": "10057_269_120",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e120621",
+            "kind": "entity",
+            "label": "3012_191_41",
+            "x": 82.34,
+            "y": 39.49
+          },
+          {
+            "id": "e120622",
+            "kind": "entity",
+            "label": "3012_269_147",
+            "x": 69.98,
+            "y": 77.51
+          },
+          {
+            "id": "e126402",
+            "kind": "entity",
+            "label": "3682_269_35",
+            "x": 30.02,
+            "y": 77.51
+          },
+          {
+            "id": "e167869",
+            "kind": "entity",
+            "label": "7669_269_148",
+            "x": 17.66,
+            "y": 39.49
+          },
+          {
+            "id": "a199271",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 34.0,
+            "y": 50.0
+          },
+          {
+            "id": "a202169",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 50.0,
+            "y": 50.0
+          },
+          {
+            "id": "a206523",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 66.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e1528",
+            "target": "a199271"
+          },
+          {
+            "source": "e120621",
+            "target": "a202169"
+          },
+          {
+            "source": "e120621",
+            "target": "a206523"
+          },
+          {
+            "source": "e120622",
+            "target": "a199271"
+          },
+          {
+            "source": "e120622",
+            "target": "a202169"
+          },
+          {
+            "source": "e120622",
+            "target": "a206523"
+          },
+          {
+            "source": "e126402",
+            "target": "a199271"
+          },
+          {
+            "source": "e167869",
+            "target": "a199271"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "BENIGN_COINCIDENCE",
         "confidence": "medium",
         "human_summary": "Cluster 6 comprises 2 entities linked by 1 shared address (addr1) and 1 shared email domain (P_emaildomain). Over an activity span of 16 days, the cluster generated 4 transactions across 2 distinct cards totaling 53768.00 INR, with a connected component size of 5, a k-core number of 2, and a max entity degree of 3. Only 1 transaction was flagged by the model, yielding a max risk score of 0.9024 alongside a lower mean risk score of 0.2373. This setup strongly resembles ordinary shared household infrastructure rather than coordinated fraud.",
         "suggested_action": "Inspect the single flagged transaction associated with the 0.9024 max risk score to rule out isolated fraud on an otherwise benign shared address.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "Cluster 6 comprises 2 entities linked by 1 shared address (",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "addr1",
+            "field": "attribute:addr1",
+            "target": "attr:addr1"
+          },
+          {
+            "text": ") and 1 shared email domain (",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "P_emaildomain",
+            "field": "attribute:P_emaildomain",
+            "target": "attr:P_emaildomain"
+          },
+          {
+            "text": "). Over an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "16",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days, the cluster generated ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "4",
+            "field": "transaction_count",
+            "target": "all"
+          },
+          {
+            "text": " transactions across 2 distinct cards totaling ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "53768.00",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR, with a connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "5",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": ", a k-core number of 2, and a max entity degree of 3. Only 1 transaction was flagged by the model, yielding a max risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.9024",
+            "field": "max_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " alongside a lower mean risk score of 0.2373. This setup strongly resembles ordinary shared household infrastructure rather than coordinated fraud.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -615,13 +1950,306 @@
         "max_risk_score": 0.7851,
         "mean_risk_score": 0.2706
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e5309",
+            "kind": "entity",
+            "label": "10385_330_168",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e48683",
+            "kind": "entity",
+            "label": "13989_191_20",
+            "x": 67.0,
+            "y": 20.56
+          },
+          {
+            "id": "e78019",
+            "kind": "entity",
+            "label": "16378_299_128",
+            "x": 79.44,
+            "y": 33.0
+          },
+          {
+            "id": "e99910",
+            "kind": "entity",
+            "label": "18220_299_-342",
+            "x": 84.0,
+            "y": 50.0
+          },
+          {
+            "id": "e99911",
+            "kind": "entity",
+            "label": "18220_299_20",
+            "x": 79.44,
+            "y": 67.0
+          },
+          {
+            "id": "e122389",
+            "kind": "entity",
+            "label": "3252_191_-56",
+            "x": 67.0,
+            "y": 79.44
+          },
+          {
+            "id": "e122395",
+            "kind": "entity",
+            "label": "3252_299_154",
+            "x": 50.0,
+            "y": 84.0
+          },
+          {
+            "id": "e190104",
+            "kind": "entity",
+            "label": "9333_126_13",
+            "x": 33.0,
+            "y": 79.44
+          },
+          {
+            "id": "e190105",
+            "kind": "entity",
+            "label": "9333_191_-316",
+            "x": 20.56,
+            "y": 67.0
+          },
+          {
+            "id": "e190106",
+            "kind": "entity",
+            "label": "9333_204_156",
+            "x": 16.0,
+            "y": 50.0
+          },
+          {
+            "id": "e190107",
+            "kind": "entity",
+            "label": "9333_299_88",
+            "x": 20.56,
+            "y": 33.0
+          },
+          {
+            "id": "e190108",
+            "kind": "entity",
+            "label": "9333_330_16",
+            "x": 33.0,
+            "y": 20.56
+          },
+          {
+            "id": "a203706",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 18.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208074",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 34.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208712",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 50.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208715",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 66.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208716",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 82.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e5309",
+            "target": "a208716"
+          },
+          {
+            "source": "e48683",
+            "target": "a208712"
+          },
+          {
+            "source": "e78019",
+            "target": "a208715"
+          },
+          {
+            "source": "e99910",
+            "target": "a208715"
+          },
+          {
+            "source": "e99911",
+            "target": "a208715"
+          },
+          {
+            "source": "e122389",
+            "target": "a208712"
+          },
+          {
+            "source": "e122395",
+            "target": "a208715"
+          },
+          {
+            "source": "e190104",
+            "target": "a203706"
+          },
+          {
+            "source": "e190104",
+            "target": "a208074"
+          },
+          {
+            "source": "e190105",
+            "target": "a203706"
+          },
+          {
+            "source": "e190105",
+            "target": "a208074"
+          },
+          {
+            "source": "e190105",
+            "target": "a208712"
+          },
+          {
+            "source": "e190106",
+            "target": "a203706"
+          },
+          {
+            "source": "e190106",
+            "target": "a208074"
+          },
+          {
+            "source": "e190107",
+            "target": "a203706"
+          },
+          {
+            "source": "e190107",
+            "target": "a208074"
+          },
+          {
+            "source": "e190107",
+            "target": "a208715"
+          },
+          {
+            "source": "e190108",
+            "target": "a203706"
+          },
+          {
+            "source": "e190108",
+            "target": "a208074"
+          },
+          {
+            "source": "e190108",
+            "target": "a208716"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "BENIGN_COINCIDENCE",
         "confidence": "low",
         "human_summary": "Cluster 7 consists of 3 entities and 3 transactions linked via an indirect attribute chain over an activity span of 14 days. The cluster involves 3 distinct cards, 3 distinct addresses, and 2 distinct email domains, totaling an amount of 52800.00 INR. Only 1 transaction was flagged by the model, yielding a max risk score of 0.7851 alongside a lower mean risk score of 0.2706. Given the low maximum entity degree of 2 and weak indirect connections within a larger connected component size of 12, the evidence points toward coincidental attribute sharing rather than intentional coordination.",
         "suggested_action": "Manually inspect the single flagged transaction with a max risk score of 0.7851 to determine if individual risk warrants action.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "Cluster 7 consists of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "entity_count",
+            "target": "entities"
+          },
+          {
+            "text": " entities and ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "entity_count",
+            "target": "entities"
+          },
+          {
+            "text": " transactions linked via an indirect attribute chain over an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "14",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days. The cluster involves ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "entity_count",
+            "target": "entities"
+          },
+          {
+            "text": " distinct cards, ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "entity_count",
+            "target": "entities"
+          },
+          {
+            "text": " distinct addresses, and 2 distinct email domains, totaling an amount of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "52800.00",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR. Only 1 transaction was flagged by the model, yielding a max risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.7851",
+            "field": "max_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " alongside a lower mean risk score of 0.2706. Given the low maximum entity degree of 2 and weak indirect connections within a larger connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "12",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": ", the evidence points toward coincidental attribute sharing rather than intentional coordination.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -646,13 +2274,201 @@
         "max_risk_score": 0.7464,
         "mean_risk_score": 0.3318
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e192374",
+            "kind": "entity",
+            "label": "9499_325_-398",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e192375",
+            "kind": "entity",
+            "label": "9499_325_143",
+            "x": 84.0,
+            "y": 50.0
+          },
+          {
+            "id": "e192376",
+            "kind": "entity",
+            "label": "9499_325_71",
+            "x": 50.0,
+            "y": 84.0
+          },
+          {
+            "id": "e192377",
+            "kind": "entity",
+            "label": "9499_325_77",
+            "x": 16.0,
+            "y": 50.0
+          },
+          {
+            "id": "a203743",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 42.0,
+            "y": 50.0
+          },
+          {
+            "id": "a208111",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 58.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e192374",
+            "target": "a203743"
+          },
+          {
+            "source": "e192374",
+            "target": "a208111"
+          },
+          {
+            "source": "e192375",
+            "target": "a203743"
+          },
+          {
+            "source": "e192375",
+            "target": "a208111"
+          },
+          {
+            "source": "e192376",
+            "target": "a203743"
+          },
+          {
+            "source": "e192376",
+            "target": "a208111"
+          },
+          {
+            "source": "e192377",
+            "target": "a203743"
+          },
+          {
+            "source": "e192377",
+            "target": "a208111"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "SHARED_CREDENTIAL_REUSE",
         "confidence": "medium",
         "human_summary": "Cluster 8 consists of 3 entities connected across 12 transactions over an activity span of 26 days, accumulating a total amount of 48114.00 INR. The graph topology shows a connected component size of 4, a k-core number of 2, and a max entity degree of 2, where all entities share card1, addr1, and P_emaildomain with exactly 1 distinct card, 1 distinct address, and 1 distinct email domain. The model flagged 6 transactions in this cluster, generating a mean risk score of 0.3318 and a max risk score of 0.7464.",
         "suggested_action": "Inspect the 3 linked entities sharing card1 and addr1 to confirm user authorization or credential compromise.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "Cluster 8 consists of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "entity_count",
+            "target": "entities"
+          },
+          {
+            "text": " entities connected across ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "12",
+            "field": "transaction_count",
+            "target": "all"
+          },
+          {
+            "text": " transactions over an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "26",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days, accumulating a total amount of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "48114.00",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR. The graph topology shows a connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "4",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": ", a k-core number of 2, and a max entity degree of 2, where all entities share ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "card1",
+            "field": "attribute:card1",
+            "target": "attr:card1"
+          },
+          {
+            "text": ", ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "addr1",
+            "field": "attribute:addr1",
+            "target": "attr:addr1"
+          },
+          {
+            "text": ", and ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "P_emaildomain",
+            "field": "attribute:P_emaildomain",
+            "target": "attr:P_emaildomain"
+          },
+          {
+            "text": " with exactly 1 distinct card, 1 distinct address, and 1 distinct email domain. The model flagged ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "6",
+            "field": "flagged_transaction_count",
+            "target": "all"
+          },
+          {
+            "text": " transactions in this cluster, generating a mean risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.3318",
+            "field": "mean_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " and a max risk score of 0.7464.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -676,13 +2492,288 @@
         "max_risk_score": 0.7397,
         "mean_risk_score": 0.6279
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e25614",
+            "kind": "entity",
+            "label": "12116_110_161",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e66570",
+            "kind": "entity",
+            "label": "15484_110_72",
+            "x": 69.98,
+            "y": 22.49
+          },
+          {
+            "id": "e122429",
+            "kind": "entity",
+            "label": "3270_110_164",
+            "x": 82.34,
+            "y": 39.49
+          },
+          {
+            "id": "e122430",
+            "kind": "entity",
+            "label": "3270_110_33",
+            "x": 82.34,
+            "y": 60.51
+          },
+          {
+            "id": "e122431",
+            "kind": "entity",
+            "label": "3270_310_-216",
+            "x": 69.98,
+            "y": 77.51
+          },
+          {
+            "id": "e122432",
+            "kind": "entity",
+            "label": "3270_310_83",
+            "x": 50.0,
+            "y": 84.0
+          },
+          {
+            "id": "e148486",
+            "kind": "entity",
+            "label": "6039_110_37",
+            "x": 30.02,
+            "y": 77.51
+          },
+          {
+            "id": "e148487",
+            "kind": "entity",
+            "label": "6039_110_45",
+            "x": 17.66,
+            "y": 60.51
+          },
+          {
+            "id": "e148488",
+            "kind": "entity",
+            "label": "6039_264_-48",
+            "x": 17.66,
+            "y": 39.49
+          },
+          {
+            "id": "e163557",
+            "kind": "entity",
+            "label": "7508_110_83",
+            "x": 30.02,
+            "y": 22.49
+          },
+          {
+            "id": "a199082",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 18.0,
+            "y": 50.0
+          },
+          {
+            "id": "a202240",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 34.0,
+            "y": 50.0
+          },
+          {
+            "id": "a202903",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 50.0,
+            "y": 50.0
+          },
+          {
+            "id": "a206596",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 66.0,
+            "y": 50.0
+          },
+          {
+            "id": "a207265",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 82.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e25614",
+            "target": "a199082"
+          },
+          {
+            "source": "e66570",
+            "target": "a199082"
+          },
+          {
+            "source": "e122429",
+            "target": "a199082"
+          },
+          {
+            "source": "e122429",
+            "target": "a202240"
+          },
+          {
+            "source": "e122429",
+            "target": "a206596"
+          },
+          {
+            "source": "e122430",
+            "target": "a202240"
+          },
+          {
+            "source": "e122430",
+            "target": "a206596"
+          },
+          {
+            "source": "e122431",
+            "target": "a202240"
+          },
+          {
+            "source": "e122431",
+            "target": "a206596"
+          },
+          {
+            "source": "e122432",
+            "target": "a202240"
+          },
+          {
+            "source": "e122432",
+            "target": "a206596"
+          },
+          {
+            "source": "e148486",
+            "target": "a199082"
+          },
+          {
+            "source": "e148486",
+            "target": "a202903"
+          },
+          {
+            "source": "e148486",
+            "target": "a207265"
+          },
+          {
+            "source": "e148487",
+            "target": "a202903"
+          },
+          {
+            "source": "e148487",
+            "target": "a207265"
+          },
+          {
+            "source": "e148488",
+            "target": "a202903"
+          },
+          {
+            "source": "e148488",
+            "target": "a207265"
+          },
+          {
+            "source": "e163557",
+            "target": "a199082"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "BENIGN_COINCIDENCE",
         "confidence": "medium",
         "human_summary": "This cluster connects 2 entities across 3 transactions within an activity span of 3 days, sharing 1 distinct address (addr1) and 1 distinct email domain (P_emaildomain). The cluster involves 2 distinct cards, has a connected component size of 10, a k-core number of 2, and a max entity degree of 3. All 3 transactions were flagged by the upstream model, accumulating a total amount of 70400.00 INR with a mean risk score of 0.6279 and a max risk score of 0.7397. Given that the linkage relies primarily on a shared address and email domain across a small number of cards, this pattern appears consistent with routine shared household or business infrastructure.",
         "suggested_action": "Review the connected entities and address details to verify if the shared attributes reflect legitimate household or organizational usage.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "This cluster connects 2 entities across ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "transaction_count",
+            "target": "all"
+          },
+          {
+            "text": " transactions within an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "transaction_count",
+            "target": "all"
+          },
+          {
+            "text": " days, sharing 1 distinct address (",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "addr1",
+            "field": "attribute:addr1",
+            "target": "attr:addr1"
+          },
+          {
+            "text": ") and 1 distinct email domain (",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "P_emaildomain",
+            "field": "attribute:P_emaildomain",
+            "target": "attr:P_emaildomain"
+          },
+          {
+            "text": "). The cluster involves 2 distinct cards, has a connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "10",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": ", a k-core number of 2, and a max entity degree of 3. All ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "transaction_count",
+            "target": "all"
+          },
+          {
+            "text": " transactions were flagged by the upstream model, accumulating a total amount of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "70400.00",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR with a mean risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.6279",
+            "field": "mean_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " and a max risk score of 0.7397. Given that the linkage relies primarily on a shared address and email domain across a small number of cards, this pattern appears consistent with routine shared household or business infrastructure.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -705,13 +2796,161 @@
         "max_risk_score": 0.6526,
         "mean_risk_score": 0.2179
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e24434",
+            "kind": "entity",
+            "label": "11926_231_19",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e24435",
+            "kind": "entity",
+            "label": "11926_299_16",
+            "x": 84.0,
+            "y": 50.0
+          },
+          {
+            "id": "e24436",
+            "kind": "entity",
+            "label": "11926_325_26",
+            "x": 50.0,
+            "y": 84.0
+          },
+          {
+            "id": "e24437",
+            "kind": "entity",
+            "label": "11926_330_167",
+            "x": 16.0,
+            "y": 50.0
+          },
+          {
+            "id": "a200094",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 42.0,
+            "y": 50.0
+          },
+          {
+            "id": "a204421",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 58.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e24434",
+            "target": "a200094"
+          },
+          {
+            "source": "e24434",
+            "target": "a204421"
+          },
+          {
+            "source": "e24435",
+            "target": "a200094"
+          },
+          {
+            "source": "e24435",
+            "target": "a204421"
+          },
+          {
+            "source": "e24436",
+            "target": "a200094"
+          },
+          {
+            "source": "e24436",
+            "target": "a204421"
+          },
+          {
+            "source": "e24437",
+            "target": "a200094"
+          },
+          {
+            "source": "e24437",
+            "target": "a204421"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "SHARED_CREDENTIAL_REUSE",
         "confidence": "medium",
         "human_summary": "This cluster involves 2 entities linked by card1, which was utilized across 2 distinct addresses and 2 distinct email domains. Over an activity span of 20 days, there were 3 transactions totaling 55528.00 INR, with 1 transaction flagged by the model. The network features a connected component size of 4, a k_core_number of 2, and a max entity degree of 2, exhibiting a mean risk score of 0.2179 and a max risk score of 0.6526.",
         "suggested_action": "Review the two accounts sharing card1 to verify whether the shared payment method reflects legitimate family usage or unauthorized credential sharing.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "This cluster involves 2 entities linked by ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "card1",
+            "field": "attribute:card1",
+            "target": "attr:card1"
+          },
+          {
+            "text": ", which was utilized across 2 distinct addresses and 2 distinct email domains. Over an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "20",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days, there were ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "transaction_count",
+            "target": "all"
+          },
+          {
+            "text": " transactions totaling ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "55528.00",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR, with 1 transaction flagged by the model. The network features a connected component size of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "4",
+            "field": "component_size",
+            "target": "entities"
+          },
+          {
+            "text": ", a k_core_number of 2, and a max entity degree of 2, exhibiting a mean risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.2179",
+            "field": "mean_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " and a max risk score of 0.6526.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     },
     {
@@ -735,13 +2974,161 @@
         "max_risk_score": 0.5962,
         "mean_risk_score": 0.215
       },
+      "subgraph": {
+        "nodes": [
+          {
+            "id": "e108023",
+            "kind": "entity",
+            "label": "2296_264_112",
+            "x": 50.0,
+            "y": 16.0
+          },
+          {
+            "id": "e108024",
+            "kind": "entity",
+            "label": "2296_264_143",
+            "x": 84.0,
+            "y": 50.0
+          },
+          {
+            "id": "e108025",
+            "kind": "entity",
+            "label": "2296_264_22",
+            "x": 50.0,
+            "y": 84.0
+          },
+          {
+            "id": "e108026",
+            "kind": "entity",
+            "label": "2296_264_51",
+            "x": 16.0,
+            "y": 50.0
+          },
+          {
+            "id": "a201986",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 42.0,
+            "y": 50.0
+          },
+          {
+            "id": "a206337",
+            "kind": "attribute",
+            "label": "shared attribute",
+            "x": 58.0,
+            "y": 50.0
+          }
+        ],
+        "edges": [
+          {
+            "source": "e108023",
+            "target": "a201986"
+          },
+          {
+            "source": "e108023",
+            "target": "a206337"
+          },
+          {
+            "source": "e108024",
+            "target": "a201986"
+          },
+          {
+            "source": "e108024",
+            "target": "a206337"
+          },
+          {
+            "source": "e108025",
+            "target": "a201986"
+          },
+          {
+            "source": "e108025",
+            "target": "a206337"
+          },
+          {
+            "source": "e108026",
+            "target": "a201986"
+          },
+          {
+            "source": "e108026",
+            "target": "a206337"
+          }
+        ],
+        "truncated": false
+      },
       "narrative": {
         "status": "OK",
         "probable_cause": "BENIGN_COINCIDENCE",
         "confidence": "medium",
         "human_summary": "Cluster 11 contains 2 entities linked by 1 distinct card (card1) and 1 distinct address (addr1) across 2 distinct email domains. Across an activity span of 26 days, the cluster generated 3 transactions totaling 27363.60 INR, with 1 transaction flagged by the model. The cluster shows a mean risk score of 0.2150 and a max risk score of 0.5962. The sharing of a single payment card and physical address between two email domains in a low-volume setting is consistent with ordinary household or family usage.",
         "suggested_action": "Verify if the shared card and address belong to a legitimate household and review the single flagged transaction before dismissing.",
-        "rejection_reason": null
+        "rejection_reason": null,
+        "summary_segments": [
+          {
+            "text": "Cluster 11 contains 2 entities linked by 1 distinct card (",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "card1",
+            "field": "attribute:card1",
+            "target": "attr:card1"
+          },
+          {
+            "text": ") and 1 distinct address (",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "addr1",
+            "field": "attribute:addr1",
+            "target": "attr:addr1"
+          },
+          {
+            "text": ") across 2 distinct email domains. Across an activity span of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "26",
+            "field": "span_days",
+            "target": "all"
+          },
+          {
+            "text": " days, the cluster generated ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "3",
+            "field": "transaction_count",
+            "target": "all"
+          },
+          {
+            "text": " transactions totaling ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "27363.60",
+            "field": "total_amount_inr",
+            "target": "all"
+          },
+          {
+            "text": " INR, with 1 transaction flagged by the model. The cluster shows a mean risk score of ",
+            "field": null,
+            "target": null
+          },
+          {
+            "text": "0.2150",
+            "field": "mean_risk_score",
+            "target": "all"
+          },
+          {
+            "text": " and a max risk score of 0.5962. The sharing of a single payment card and physical address between two email domains in a low-volume setting is consistent with ordinary household or family usage.",
+            "field": null,
+            "target": null
+          }
+        ]
       }
     }
   ],

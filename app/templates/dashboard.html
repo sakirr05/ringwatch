@@ -110,6 +110,28 @@ figcaption { font-size: .82rem; color: var(--muted); margin-top: .5rem; }
 .prov dt { color: var(--muted); }
 .prov dd { margin: 0; font-family: ui-monospace, monospace; }
 .overflow { overflow-x: auto; }
+
+/* ---- cluster subgraph + prose provenance ---- */
+.graphwrap { display: grid; grid-template-columns: 200px 1fr; gap: 1rem;
+  align-items: center; margin: .8rem 0; }
+@media (max-width: 600px) { .graphwrap { grid-template-columns: 1fr; } }
+.cgraph { width: 200px; height: 200px; display: block;
+  background: var(--det-bg); border: 1px solid var(--rule); border-radius: 3px; }
+.gcap { margin: 0; font-size: .8rem; }
+.ge { stroke: var(--rule); stroke-width: .5; transition: stroke .12s, stroke-width .12s; }
+.gn { transition: fill .12s, r .12s, stroke-width .12s; cursor: default; }
+.gn-entity { fill: var(--det); }
+.gn-attr   { fill: var(--faint); }
+.cgraph.lit .gn:not(.hit) { opacity: .22; }
+.cgraph.lit .ge:not(.hit) { opacity: .15; }
+.gn.hit { fill: var(--warn); }
+circle.gn.hit { r: 4.6; }
+.ge.hit { stroke: var(--warn); stroke-width: 1.1; }
+
+.tr { border-bottom: 1.5px dotted var(--det); cursor: help;
+  background: var(--det-bg); border-radius: 2px; padding: 0 1px; }
+.tr:hover, .tr.on { background: var(--warn-bg); border-bottom-color: var(--warn);
+  color: var(--warn); }
 </style>
 </head>
 <body>
@@ -437,10 +459,48 @@ figcaption { font-size: .82rem; color: var(--muted); margin-top: .5rem; }
         </dl>
       </div>
 
+      {% if c.subgraph and c.subgraph.nodes %}
+      <div class="graphwrap">
+        <svg class="cgraph" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"
+             role="img" aria-label="Entity graph for this cluster">
+          {% for e in c.subgraph.edges %}
+            <line class="ge" data-source="{{ e.source }}" data-target="{{ e.target }}"
+                  x1="0" y1="0" x2="0" y2="0" />
+          {% endfor %}
+          {% for n in c.subgraph.nodes %}
+            {% if n.kind == 'entity' %}
+              <circle class="gn gn-entity" data-id="{{ n.id }}"
+                      cx="{{ n.x }}" cy="{{ n.y }}" r="3.2"><title>entity {{ n.label }}</title></circle>
+            {% else %}
+              <rect class="gn gn-attr" data-id="{{ n.id }}"
+                    x="{{ n.x - 2.4 }}" y="{{ n.y - 2.4 }}" width="4.8" height="4.8"
+                    rx="1"><title>{{ n.label }}</title></rect>
+            {% endif %}
+          {% endfor %}
+        </svg>
+        <p class="sub gcap">
+          The actual bipartite subgraph the engine built — circles are entities, squares are
+          the attribute values linking them. Hover a highlighted phrase in the prose to see
+          which part of this the model is describing.
+        </p>
+      </div>
+      {% endif %}
+
       <div class="prov ai">
         <span class="tag tag-ai">written by the LLM</span>
         {% if c.narrative.status == 'OK' %}
+          {% if c.narrative.summary_segments %}
+          <p style="margin:.5rem 0 .3rem" class="prose">
+            {%- for s in c.narrative.summary_segments -%}
+              {%- if s.field -%}
+                <span class="tr" data-target="{{ s.target }}"
+                      title="computed by core/ — {{ s.field }}">{{ s.text }}</span>
+              {%- else -%}{{ s.text }}{%- endif -%}
+            {%- endfor -%}
+          </p>
+          {% else %}
           <p style="margin:.5rem 0 .3rem">{{ c.narrative.human_summary }}</p>
+          {% endif %}
           <p style="margin:.3rem 0 0"><strong>Suggested action:</strong>
             {{ c.narrative.suggested_action }}</p>
           <p class="sub" style="margin:.5rem 0 0">
@@ -560,5 +620,85 @@ figcaption { font-size: .82rem; color: var(--muted); margin-top: .5rem; }
   </p>
 
 </div>
+
+<script>
+/* Cluster subgraph rendering and prose->graph provenance highlighting.
+ *
+ * This script draws nothing it was not given. Node coordinates are computed server-side
+ * in scripts/export_results.py and baked into the SVG; all this does is join the edge
+ * endpoints to the node positions already in the DOM, and toggle classes on hover.
+ * It never computes a score, a layout, or a relationship.
+ */
+(function () {
+  "use strict";
+
+  // Edges are emitted with placeholder coordinates because only the browser knows the
+  // final node positions after layout. Join them to their endpoints here.
+  document.querySelectorAll(".cgraph").forEach(function (svg) {
+    var pos = {};
+    svg.querySelectorAll(".gn").forEach(function (node) {
+      pos[node.dataset.id] = node.tagName === "circle"
+        ? { x: +node.getAttribute("cx"), y: +node.getAttribute("cy") }
+        : { x: +node.getAttribute("x") + 2.4, y: +node.getAttribute("y") + 2.4 };
+    });
+    svg.querySelectorAll(".ge").forEach(function (edge) {
+      var a = pos[edge.dataset.source], b = pos[edge.dataset.target];
+      if (!a || !b) return;
+      edge.setAttribute("x1", a.x); edge.setAttribute("y1", a.y);
+      edge.setAttribute("x2", b.x); edge.setAttribute("y2", b.y);
+    });
+  });
+
+  function clusterOf(el) {
+    var body = el.closest(".cbody");
+    return body ? body.querySelector(".cgraph") : null;
+  }
+
+  /* Which graph elements a traced phrase refers to.
+   *   entities   -> every entity node
+   *   attributes -> every attribute node
+   *   attr:NAME  -> attribute nodes specifically (the most precise highlight available;
+   *                 the export does not carry per-attribute node identities, so this
+   *                 lights the attribute layer rather than pretending to know which one)
+   *   all        -> the whole cluster
+   */
+  function select(svg, target) {
+    if (!svg || !target) return [];
+    if (target === "entities") return svg.querySelectorAll(".gn-entity");
+    if (target === "attributes" || target.indexOf("attr:") === 0) {
+      return svg.querySelectorAll(".gn-attr");
+    }
+    return svg.querySelectorAll(".gn");
+  }
+
+  function light(el, on) {
+    var svg = clusterOf(el);
+    if (!svg) return;
+    var nodes = select(svg, el.dataset.target);
+    if (!nodes.length) return;
+
+    svg.classList.toggle("lit", on);
+    nodes.forEach(function (n) { n.classList.toggle("hit", on); });
+
+    // An edge counts as touched when both of its endpoints are lit.
+    var litIds = {};
+    nodes.forEach(function (n) { litIds[n.dataset.id] = true; });
+    svg.querySelectorAll(".ge").forEach(function (edge) {
+      var touches = litIds[edge.dataset.source] || litIds[edge.dataset.target];
+      edge.classList.toggle("hit", on && !!touches);
+    });
+    el.classList.toggle("on", on);
+  }
+
+  document.querySelectorAll(".tr").forEach(function (span) {
+    span.addEventListener("mouseenter", function () { light(span, true); });
+    span.addEventListener("mouseleave", function () { light(span, false); });
+    // Keyboard parity: the highlight is the evidence, so it must not be mouse-only.
+    span.setAttribute("tabindex", "0");
+    span.addEventListener("focus", function () { light(span, true); });
+    span.addEventListener("blur", function () { light(span, false); });
+  });
+})();
+</script>
 </body>
 </html>

@@ -29,6 +29,7 @@ def build_cluster_evidence(
     scores: np.ndarray,
     threshold: float,
     top_n: int = DEFAULT_TOP_N,
+    selected_components: list[int] | None = None,
 ) -> list[ClusterEvidence]:
     """Package the top flagged multi-entity clusters as evidence objects.
 
@@ -36,12 +37,16 @@ def build_cluster_evidence(
     transaction the deterministic model scored at or above `threshold` are eligible. Both
     conditions are decided here, by code, before the model is ever consulted.
     """
+    if selected_components is None:
+        selected_components = []
+
     frame = test.copy()
     frame["_score"] = scores
     frame["_flagged"] = scores >= threshold
 
     eligible = frame[frame["g_component"].notna() & (frame["g_component_size"] > 1)]
     if eligible.empty:
+        selected_components.clear()
         return []
 
     # `g_component_size` counts entities in the GRAPH, which spans the whole timeline.
@@ -53,6 +58,7 @@ def build_cluster_evidence(
     multi_entity = entities_present[entities_present >= 2].index
     eligible = eligible[eligible["g_component"].isin(multi_entity)]
     if eligible.empty:
+        selected_components.clear()
         return []
 
     grouped = eligible.groupby("g_component", observed=True)
@@ -63,6 +69,17 @@ def build_cluster_evidence(
         .loc[lambda s: s >= threshold]
         .head(top_n)
     )
+
+    # The component label each cluster came from. Returned via `selected_components` so
+    # callers can pull the cluster's actual subgraph out of the entity graph for display,
+    # without re-deriving this selection and risking the two drifting apart.
+    #
+    # Deliberately NOT added to ClusterEvidence: that object defines what the language
+    # model may quote, and a component label is a large arbitrary integer that would become
+    # a legitimately quotable "number" in the provenance guard. Keeping it out means the
+    # model can never cite a graph-internal id as though it meant something.
+    selected_components.clear()
+    selected_components.extend(int(component) for component in ranked.index)
 
     evidence: list[ClusterEvidence] = []
     for rank, (component, _) in enumerate(ranked.items()):

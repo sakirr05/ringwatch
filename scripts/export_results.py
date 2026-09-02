@@ -60,6 +60,7 @@ from core.graph import (  # noqa: E402
     graph_features,
     graph_summary,
 )
+from core.provenance import annotate_to_dicts  # noqa: E402
 from core.ring_evidence import ring_concentration_test  # noqa: E402
 from core.value_metrics import (  # noqa: E402
     value_concentration,
@@ -90,6 +91,81 @@ def git_commit() -> str:
         ).stdout.strip()
     except Exception:  # noqa: BLE001
         return "unknown"
+
+
+def cluster_subgraph(graph, component_label: int, labels, max_nodes: int = 40) -> dict:
+    """The REAL bipartite subgraph for one flagged cluster, with a deterministic layout.
+
+    Extracted from the entity graph rather than drawn from aggregate counts: a picture
+    assembled from "3 entities share 2 attributes" would be a plausible-looking diagram of
+    a topology nobody verified. These are the actual nodes and edges the engine built.
+
+    Layout is computed here rather than in the browser so the page stays a renderer -- and
+    so the diagram is identical on every load. Entities sit on a circle, attribute values
+    in the middle, which reads clearly for the component sizes this graph produces (mean
+    4.3 entities, max 39).
+    """
+    import math
+
+    # The graph is bipartite: nodes below n_uids are entities, the rest are the attribute
+    # values that link them. A component contains both, so they must be separated before
+    # laying anything out -- an attribute node has no uid and indexing uids with it raises.
+    members = [
+        i
+        for i in range(len(labels))
+        if labels[i] == component_label and i < graph.n_uids
+    ]
+    if not members:
+        return {"nodes": [], "edges": [], "truncated": False}
+
+    member_set = set(members)
+    attribute_nodes = sorted(
+        {
+            neighbour
+            for node in members
+            for neighbour in graph.adjacency[node]
+            if neighbour >= graph.n_uids
+        }
+    )
+
+    truncated = len(members) + len(attribute_nodes) > max_nodes
+    members = members[:max_nodes]
+    member_set = set(members)
+    attribute_nodes = attribute_nodes[: max(max_nodes - len(members), 0)]
+
+    nodes = []
+    for index, node in enumerate(members):
+        angle = 2 * math.pi * index / max(len(members), 1)
+        nodes.append(
+            {
+                "id": f"e{node}",
+                "kind": "entity",
+                "label": str(graph.uids[node]),
+                "x": round(50 + 34 * math.cos(angle - math.pi / 2), 2),
+                "y": round(50 + 34 * math.sin(angle - math.pi / 2), 2),
+            }
+        )
+
+    for index, node in enumerate(attribute_nodes):
+        offset = (index - (len(attribute_nodes) - 1) / 2) * 16
+        nodes.append(
+            {
+                "id": f"a{node}",
+                "kind": "attribute",
+                "label": "shared attribute",
+                "x": round(50 + offset, 2),
+                "y": 50.0,
+            }
+        )
+
+    attribute_set = set(attribute_nodes)
+    edges = [
+        {"source": f"e{node}", "target": f"a{neighbour}"}
+        for node in members
+        for neighbour in graph.adjacency[node]
+        if neighbour in attribute_set
+    ]
+    return {"nodes": nodes, "edges": edges, "truncated": truncated}
 
 
 def threshold_to_dict(report) -> dict:
@@ -258,11 +334,23 @@ def main() -> int:
     _, test_with_graph, _ = build_features_for_split(train, test)
     test_with_graph = add_time_features(test_with_graph)
     threshold = reports["graph_full"].constrained_operating_point.threshold
-    evidence_items = build_cluster_evidence(test_with_graph, scores["graph_full"], threshold)
+    selected_components: list[int] = []
+    evidence_items = build_cluster_evidence(
+        test_with_graph,
+        scores["graph_full"],
+        threshold,
+        selected_components=selected_components,
+    )
     narratives = narrate_all(evidence_items)
 
+    # Component labels for the FULL entity graph, so each cluster's real subgraph can be
+    # extracted for display. Same graph object the ring statistics came from.
+    full_labels = connected_components(graph.adjacency)
+
     clusters = []
-    for evidence, narrative in zip(evidence_items, narratives):
+    for evidence, narrative, component in zip(
+        evidence_items, narratives, selected_components
+    ):
         clusters.append(
             {
                 # Everything under "evidence" was computed by core/. Everything under
@@ -286,6 +374,7 @@ def main() -> int:
                     "max_risk_score": evidence.max_risk_score,
                     "mean_risk_score": evidence.mean_risk_score,
                 },
+                "subgraph": cluster_subgraph(graph, component, full_labels),
                 "narrative": {
                     "status": narrative.status,
                     "probable_cause": narrative.probable_cause,
@@ -293,6 +382,29 @@ def main() -> int:
                     "human_summary": narrative.human_summary,
                     "suggested_action": narrative.suggested_action,
                     "rejection_reason": narrative.rejection_reason,
+                    # Prose split into segments, each marked with the deterministic field
+                    # it quotes. Lets the page highlight the graph element a phrase refers
+                    # to -- making the determinism boundary visible rather than merely
+                    # tested. Plain text, never HTML: the template escapes each segment.
+                    "summary_segments": annotate_to_dicts(
+                        narrative.human_summary,
+                        {
+                            "entity_count": evidence.entity_count,
+                            "transaction_count": evidence.transaction_count,
+                            "flagged_transaction_count": evidence.flagged_transaction_count,
+                            "component_size": evidence.component_size,
+                            "core_number": evidence.core_number,
+                            "max_degree": evidence.max_degree,
+                            "span_days": evidence.span_days,
+                            "distinct_cards": evidence.distinct_cards,
+                            "distinct_addresses": evidence.distinct_addresses,
+                            "distinct_email_domains": evidence.distinct_email_domains,
+                            "total_amount_inr": evidence.total_amount_inr,
+                            "max_risk_score": evidence.max_risk_score,
+                            "mean_risk_score": evidence.mean_risk_score,
+                            "shared_attributes": list(evidence.shared_attributes),
+                        },
+                    ),
                 },
             }
         )
