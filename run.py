@@ -4,6 +4,7 @@
     python run.py --stage baseline   # train + evaluate the tabular-only model
     python run.py --stage graph      # build the entity graph, print its statistics
     python run.py --stage ablation   # baseline vs graph-augmented, the honest comparison
+    python run.py --stage value      # value-weighted ablation + centrality variant
     python run.py --stage calibration # are the predicted probabilities trustworthy?
     python run.py --stage narrate    # LLM narratives for flagged clusters
     python run.py --stage all
@@ -25,7 +26,17 @@ import pandas as pd
 from sklearn.metrics import average_precision_score
 
 from core.data import CACHE_DIR, TARGET, dataset_summary, load_merged
-from core.evaluate import bootstrap_auc_pr_delta, evaluate
+from core.evaluate import (
+    amount_inr,
+    bootstrap_auc_pr_delta,
+    choose_threshold_under_insult_cap,
+    evaluate,
+)
+from core.value_metrics import (
+    value_concentration,
+    value_detection_rate,
+    value_weighted_average_precision,
+)
 from core.features import add_time_features, feature_columns
 from core.graph import (
     GRAPH_FEATURE_COLUMNS,
@@ -39,6 +50,13 @@ from core.graph import (
     graph_summary,
 )
 from core.calibration import calibration_report
+from core.centrality import (
+    CENTRALITY_FEATURE_COLUMNS,
+    betweenness,
+    build_centrality_for_split,
+    component_centrality_variance,
+    pagerank,
+)
 from core.clusters import build_cluster_evidence
 from core.model import train_model
 from core.ring_evidence import ring_concentration_test
@@ -46,7 +64,9 @@ from core.split import split_summary, temporal_split
 
 from ai.narrate import narrate_all
 
-STAGES = ("data", "baseline", "graph", "ablation", "calibration", "narrate", "all")
+STAGES = (
+    "data", "baseline", "graph", "ablation", "value", "calibration", "narrate", "all",
+)
 
 
 def banner(text: str) -> None:
@@ -355,6 +375,149 @@ def stage_ablation(df: pd.DataFrame | None = None) -> None:
     )
 
 
+def stage_value(df: pd.DataFrame | None = None) -> None:
+    """Re-run the ablation weighted by transaction value, plus a centrality variant.
+
+    AUC-PR is count-uniform: it treats a small fraud and a large one alike. PayPal's
+    engineers report optimising for "dollar-weighted fraud detection", which raises a fair
+    objection to this project's negative result -- maybe the graph layer only looks useless
+    because the metric ignores money.
+
+    Predictions for everything below were recorded in PLAN_VALUE_WEIGHTED.md before this
+    ran. Weighting uses raw TransactionAmt: VDR is a ratio, so units cancel and no
+    exchange-rate assumption is needed anywhere in this stage.
+    """
+    banner("STAGE: value-weighted evaluation")
+    df = df if df is not None else load_merged()
+    if UID_COL not in df.columns:
+        df = df.copy()
+        df[UID_COL] = build_uid(df)
+
+    train, test = temporal_split(df)
+    train, test, _ = build_features_for_split(train, test)
+    train, test, full_graph = build_centrality_for_split(train, test)
+    train, test = add_time_features(train), add_time_features(test)
+
+    y_true = test[TARGET].to_numpy().astype(int)
+    amounts = test["TransactionAmt"].to_numpy().astype(float)
+
+    # ---- the mechanism check, before any model comparison -------------
+    banner("Is graph-linked fraud actually more valuable?")
+    print("Value weighting can only change a conclusion if the subgroup it favours carries")
+    print("more value than its share of the count. So that is measured first.\n")
+    linked = test["g_is_linked"].fillna(0).to_numpy() == 1
+    concentration = value_concentration(y_true, amounts, linked, "graph-linked rows")
+    for line in concentration.summary_lines():
+        print(line)
+
+    # ---- variants ------------------------------------------------------
+    base_cols = feature_columns(
+        train,
+        extra_excluded=set(GRAPH_FEATURE_COLUMNS) | set(CENTRALITY_FEATURE_COLUMNS) | {UID_COL},
+    )
+    variants = {
+        "tabular only": (base_cols, "baseline"),
+        "+ components": (
+            base_cols + ["g_component_size", "g_component_size_total", "g_is_linked"],
+            "components",
+        ),
+        "+ k-core": (base_cols + ["g_core_number", "g_degree"], "kcore"),
+        "+ full graph": (
+            feature_columns(train, extra_excluded=set(CENTRALITY_FEATURE_COLUMNS) | {UID_COL}),
+            "graph_full",
+        ),
+        "+ centrality": (
+            feature_columns(train, extra_excluded={UID_COL}),
+            "centrality",
+        ),
+    }
+
+    banner("Training / loading variants")
+    scores = {
+        name: _fit_and_score(train, test, cols, name, key)
+        for name, (cols, key) in variants.items()
+    }
+
+    # ---- the table -----------------------------------------------------
+    banner("COUNT-WEIGHTED vs VALUE-WEIGHTED")
+    cap_reports = {
+        name: choose_threshold_under_insult_cap(y_true, s, amount_inr(amounts))
+        for name, s in scores.items()
+    }
+
+    print(
+        f"{'variant':<16} {'AUC-PR':>9} {'VW AUC-PR':>11} "
+        f"{'recall@cap':>11} {'VDR@cap':>9}"
+    )
+    for name, s in scores.items():
+        cap = cap_reports[name]
+        print(
+            f"{name:<16} {average_precision_score(y_true, s):>9.4f} "
+            f"{value_weighted_average_precision(y_true, s, amounts):>11.4f} "
+            f"{cap.recall:>11.4f} "
+            f"{value_detection_rate(y_true, s, amounts, cap.threshold):>9.4f}"
+        )
+
+    # ---- paired bootstrap, both weightings ------------------------------
+    banner("IS ANY DIFFERENCE REAL? (paired bootstrap, 95% CI)")
+    baseline = scores["tabular only"]
+    n_comparisons = (len(variants) - 1) * 2  # every variant, under both weightings
+    print(
+        f"Eight comparisons are made below (4 variants x 2 weightings). At 95% each, the\n"
+        f"chance of at least one false positive is ~34%, so every interval is reported\n"
+        f"BOTH uncorrected and Bonferroni-corrected across the family of {n_comparisons}.\n"
+    )
+    print(
+        f"{'variant':<16} {'wt':<6} {'delta':>9}  {'95% CI':<22} "
+        f"{'corrected':<22} survives?"
+    )
+    widths: dict[str, dict[str, float]] = {}
+    for name in list(variants)[1:]:
+        widths[name] = {}
+        for label, weight in (("count", None), ("value", amounts)):
+            raw = bootstrap_auc_pr_delta(
+                y_true, baseline, scores[name], name=name, sample_weight=weight
+            )
+            corrected = bootstrap_auc_pr_delta(
+                y_true,
+                baseline,
+                scores[name],
+                name=name,
+                sample_weight=weight,
+                n_comparisons=n_comparisons,
+            )
+            widths[name][label] = raw.ci_high - raw.ci_low
+            print(
+                f"{name:<16} {label:<6} {raw.delta:>+9.4f}  "
+                f"[{raw.ci_low:+.4f}, {raw.ci_high:+.4f}]   "
+                f"[{corrected.ci_low:+.4f}, {corrected.ci_high:+.4f}]   "
+                f"{'YES' if corrected.significant else 'no'}"
+            )
+
+    print("\n  Predicted in advance: value-weighted intervals should be WIDER, because the")
+    print("  top 1% of frauds carry ~11% of fraud value and resampling them swings hard.")
+    for name, w in widths.items():
+        ratio = w["value"] / w["count"] if w["count"] else float("nan")
+        print(
+            f"    {name:<16} count width {w['count']:.4f}  value width {w['value']:.4f}  "
+            f"-> {ratio:.2f}x"
+        )
+
+    # ---- why centrality behaves as it does ------------------------------
+    banner("CENTRALITY: does it vary at all inside these components?")
+    labels = connected_components(full_graph.adjacency)[: full_graph.n_uids]
+    ranks = pagerank(full_graph.adjacency)[: full_graph.n_uids]
+    between = betweenness_scores = None
+    print("computing betweenness over the full entity graph ...", flush=True)
+    between = betweenness(full_graph.adjacency)[: full_graph.n_uids]
+    degrees = np.array(
+        [len(full_graph.adjacency[i]) for i in range(full_graph.n_uids)], dtype=np.int64
+    )
+    variance = component_centrality_variance(labels, ranks, between, degrees > 0)
+    for line in variance.summary_lines():
+        print(line)
+
+
 def stage_calibration(df: pd.DataFrame | None = None) -> None:
     """Are the predicted probabilities trustworthy AS probabilities?
 
@@ -479,6 +642,8 @@ def main() -> int:
         stage_graph()
     elif args.stage == "ablation":
         stage_ablation()
+    elif args.stage == "value":
+        stage_value()
     elif args.stage == "calibration":
         stage_calibration()
     elif args.stage == "narrate":
@@ -488,6 +653,7 @@ def main() -> int:
         stage_baseline(df)
         stage_graph(df)
         stage_ablation(df)
+        stage_value(df)
         stage_calibration(df)
         stage_narrate(df)
     return 0

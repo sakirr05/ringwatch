@@ -147,13 +147,21 @@ class EvaluationReport:
 
 @dataclass
 class DeltaReport:
-    """A difference in AUC-PR between two models, with an honest uncertainty interval."""
+    """A difference in AUC-PR between two models, with an honest uncertainty interval.
+
+    `n_comparisons` records how many tests the interval is corrected for. Running eight
+    comparisons at 95% each gives roughly a one-in-three chance of at least one false
+    positive, so an uncorrected interval from a family of tests overstates its own
+    confidence. Bonferroni is conservative, which is the right direction to err when the
+    alternative is announcing an effect that is not there.
+    """
 
     name: str
     delta: float
     ci_low: float
     ci_high: float
     n_resamples: int
+    n_comparisons: int = 1
 
     @property
     def significant(self) -> bool:
@@ -162,7 +170,8 @@ class DeltaReport:
 
     def verdict(self) -> str:
         if not self.significant:
-            return "not significant (CI spans 0)"
+            corrected = "" if self.n_comparisons == 1 else f", {self.n_comparisons}-way corrected"
+            return f"not significant (CI spans 0{corrected})"
         return "SIGNIFICANTLY BETTER" if self.delta > 0 else "SIGNIFICANTLY WORSE"
 
     def line(self) -> str:
@@ -179,6 +188,8 @@ def bootstrap_auc_pr_delta(
     name: str,
     n_resamples: int = 400,
     seed: int = 0,
+    sample_weight: np.ndarray | None = None,
+    n_comparisons: int = 1,
 ) -> DeltaReport:
     """Paired bootstrap CI for the AUC-PR difference between two models.
 
@@ -200,6 +211,11 @@ def bootstrap_auc_pr_delta(
     rng = np.random.default_rng(seed)
     n = len(y_true)
 
+    # `sample_weight` turns this into the value-weighted comparison without changing the
+    # estimator, the pairing, or the resampling. Default None reproduces the count-weighted
+    # behaviour exactly, so every previously reported interval is unaffected.
+    weights = None if sample_weight is None else np.asarray(sample_weight, dtype=np.float64)
+
     deltas = np.empty(n_resamples, dtype=np.float64)
     for i in range(n_resamples):
         idx = rng.integers(0, n, size=n)
@@ -207,17 +223,28 @@ def bootstrap_auc_pr_delta(
         if resampled_y.sum() == 0:  # degenerate resample, no positives
             deltas[i] = 0.0
             continue
+        resampled_weights = None if weights is None else weights[idx]
+        if resampled_weights is not None and resampled_weights[resampled_y == 1].sum() <= 0:
+            # No positive VALUE in this resample: the value-weighted metric is undefined.
+            deltas[i] = 0.0
+            continue
         deltas[i] = average_precision_score(
-            resampled_y, variant_scores[idx]
-        ) - average_precision_score(resampled_y, baseline_scores[idx])
+            resampled_y, variant_scores[idx], sample_weight=resampled_weights
+        ) - average_precision_score(
+            resampled_y, baseline_scores[idx], sample_weight=resampled_weights
+        )
 
-    low, high = np.percentile(deltas, [2.5, 97.5])
+    # Bonferroni: split the 5% error budget across the whole family of comparisons, so an
+    # interval taken from one of eight tests is not read as though it were the only one.
+    tail = 5.0 / (2 * max(n_comparisons, 1))
+    low, high = np.percentile(deltas, [tail, 100 - tail])
     return DeltaReport(
         name=name,
         delta=float(deltas.mean()),
         ci_low=float(low),
         ci_high=float(high),
         n_resamples=n_resamples,
+        n_comparisons=n_comparisons,
     )
 
 

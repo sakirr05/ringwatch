@@ -324,6 +324,90 @@ trained model does not.** Reporting that is more useful than quietly displaying 
 that means nothing — and stating it is the same discipline as reporting the negative
 ablation above.
 
+## Does the graph layer matter where the money is?
+
+AUC-PR is **count-uniform** — it treats a small fraud and a large one identically. PayPal's
+engineers report optimising for "dollar-weighted fraud detection", which raises a fair
+objection to the negative result above: perhaps the graph layer only looks useless because
+the metric ignores value. Fraud rings might plausibly target larger amounts.
+
+Predictions were recorded in `PLAN_VALUE_WEIGHTED.md` before measuring. Run it with
+`python run.py --stage value`.
+
+### First, the mechanism — and it settles most of the question
+
+| | share of fraud **count** | share of fraud **value** |
+|---|---|---|
+| graph-linked rows | 3.35% | **3.57%** |
+
+A **1.07× enrichment**. Mean fraud amount 160.18 for linked rows against 149.73 for
+isolated. Value weighting can only change a conclusion if the subgroup it favours carries
+disproportionate value, and this one does not.
+
+### The full table
+
+Weighted by raw `TransactionAmt`. VDR is a ratio, so units cancel and **no exchange-rate
+assumption is used anywhere in this section** — strictly fewer premises than the rupee
+costing elsewhere in this README.
+
+| variant | AUC-PR | value-weighted AUC-PR | recall @ cap | VDR @ cap |
+|---|---|---|---|---|
+| tabular only | 0.5188 | 0.4326 | 0.4178 | 0.3242 |
+| + components | 0.5176 | 0.4353 | 0.4254 | 0.3233 |
+| + k-core | 0.5123 | 0.4368 | 0.4173 | 0.3228 |
+| + full graph | 0.5168 | 0.4369 | 0.4213 | 0.3329 |
+| + centrality | 0.5134 | **0.4450** | 0.4163 | 0.3302 |
+
+### The result that nearly became a false headline
+
+`+ centrality` — hand-implemented PageRank and Brandes betweenness, the algorithms PayPal
+names for ring detection — came back **significantly better under value weighting**
+(+0.0125, 95% CI [+0.0024, +0.0220]) while being **significantly worse** on counts. That is
+precisely the dramatic "the graph matters where the money is" story, and it would have made
+a compelling claim.
+
+**It does not survive multiplicity correction.** Four variants under two weightings is
+**eight comparisons**; at 95% each, the chance of at least one false positive is ~34%.
+Corrected across that family, the centrality value interval becomes **[−0.0022, +0.0257] —
+it spans zero.** Two-sided bootstrap p ≈ 0.012 against a corrected threshold of 0.00625.
+
+What *does* survive correction is unflattering in the other direction: **both k-core and
+centrality are significantly harmful on the count metric.**
+
+So the conclusion is unchanged, and now it has survived its most serious challenge: **no
+graph variant produces a value-weighted lift that holds up under the number of tests
+actually run.** The pre-registration committed in advance to treating any positive as
+hypothesis-generating rather than confirmatory, which is the only honest way to report the
+one hit out of eight.
+
+### Two predictions I got wrong
+
+**Betweenness is not mostly zero.** I predicted >70% of linked entities would have zero
+betweenness, reasoning about a projected entity-to-entity graph where a 4-node component
+leaves nothing to sit between. Only **19.2%** are zero — because the graph is *bipartite*,
+so a chain `uid → attribute → uid → attribute → uid` makes the middle entities genuine
+intermediaries. I was reasoning about the wrong topology.
+
+**PageRank, though, is as constant as predicted**: median within-component coefficient of
+variation is **0.0000**. Across components averaging 3.2 entities there is simply nothing
+for it to distinguish.
+
+### Caveats
+
+- `TransactionAmt` is anonymised and possibly transformed. This is evidence about **value
+  structure in the dataset**, never a claim about literal money saved.
+- This is a **second metric run after the first returned null**, which is structurally the
+  move this project refused elsewhere. It is defensible only because the predicted null was
+  recorded first and because `core/evaluate.py` already weighted by amount for insult
+  costing — value-awareness was an existing commitment, not an escape route.
+- Value-weighted intervals are **2.3–2.6× wider** than count-weighted ones, as predicted:
+  the top 1% of frauds carry ~11% of fraud value, so resampling them swings the estimate
+  hard. The value metric is *less* sensitive, not more.
+- **Not publicly documented ≠ absent.** Razorpay very likely has internal value-weighted
+  evaluation; the comparison here is against public documentation only.
+- Deliberately out of scope, and named rather than skipped: production **GNNs** and PayPal's
+  **real-time graph database** are real capabilities that a solo CPU build cannot reproduce.
+
 ## Incremental k-core maintenance
 
 Production fraud graphs update continuously; RingWatch rebuilds in batch. So the k-core

@@ -118,6 +118,62 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-02 17:25] — Betweenness centrality hung for 12 minutes and had to be killed
+
+- **Symptom:** `run.py --stage value` sat at 117% CPU (single-threaded) producing nothing
+  for twelve minutes, and was killed. Everything before it — training, bootstrap — had
+  completed fine.
+- **Diagnosis:** Brandes' algorithm is O(V·E), which is the *good* complexity for
+  betweenness and is still hopeless here. The entity graph has **208,914 nodes and 29,285
+  edges**, so sourcing a BFS from every vertex is roughly 6×10⁹ Python-level operations. I
+  had validated the implementation against networkx on graphs of 40–200 nodes, where the
+  cost is invisible, and never estimated it at the real scale. A second, quieter problem
+  compounded it: each source allocated three arrays sized to the *whole graph*, so a
+  4-vertex component was doing 208,914-element allocations thousands of times over.
+- **Fix:** Both are exact, not approximations. Shortest paths never cross between connected
+  components, so Brandes can run **per component** and give identical results — and this
+  graph's components max out at 39 vertices. Components smaller than 3 are skipped entirely,
+  since nothing can lie between fewer than two vertices. Per-source state moved from
+  full-graph arrays to dicts scoped to the component. **Runtime went from >12 minutes
+  (killed, never finished) to 0.3 seconds**, with all 38 correctness tests against networkx
+  still passing — including the disconnected-graph case that pins the normalisation
+  convention. The lesson is that validating an algorithm's *correctness* at toy scale says
+  nothing about its *cost* at real scale.
+
+## [2026-09-02 18:40] — I nearly published a false headline, and the multiplicity check caught it
+
+**The most important entry in this log since the pivot.**
+
+- **Symptom:** The value-weighted ablation returned `+ centrality` as **significantly
+  better** — delta +0.0125, 95% CI [+0.0024, +0.0220] — while being significantly *worse*
+  on the count metric. That is exactly the dramatic result the whole exercise was hoping
+  for: "the graph layer looked useless only because the metric ignored money." It would
+  have been the headline of the video.
+- **Diagnosis:** I ran **four variants under two weightings — eight comparisons** — and
+  reported the one that came back positive. At 95% confidence per test, the probability of
+  at least one false positive across eight is about 34%. Announcing that hit without
+  mentioning the other seven would have been textbook selective reporting, and it is the
+  identical failure this project already refused twice: once when declining to hunt link
+  keys and hub caps until one beat baseline, and once when refusing to calibrate LLM
+  confidence on 12 clusters.
+
+  Correcting for the family: the centrality value interval becomes **[−0.0022, +0.0257] —
+  it spans zero.** Two-sided bootstrap p ≈ 0.012 against a Bonferroni threshold of
+  0.05/8 = 0.00625. The effect is suggestive and it is not established.
+- **Fix:** Bonferroni correction is now part of the tooling rather than an ad-hoc script —
+  `bootstrap_auc_pr_delta` takes `n_comparisons`, and `--stage value` prints corrected and
+  uncorrected intervals side by side for every comparison so a reader can see the whole
+  family rather than the winner. The result is reported as **hypothesis-generating, not
+  confirmatory**, which is what `PLAN_VALUE_WEIGHTED.md` committed to in advance for exactly
+  this scenario.
+
+  What survives correction points the other way: **both k-core and centrality are
+  significantly harmful on the count metric.**
+
+  Worth stating plainly: the pre-registration is what made this recoverable. Without a
+  written commitment to treat a positive as hypothesis-generating, I would have had every
+  incentive to find the correction pedantic after seeing the number.
+
 ## [2026-09-02 12:40] — The webhook feature I planned turned out to be dishonest
 
 - **Symptom:** Not a crash. The plan said "on a `payment.*` event, extract the fields the
