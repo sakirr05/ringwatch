@@ -198,3 +198,89 @@ def test_missing_artifact_degrades_honestly(tmp_path):
     with pytest.raises(ResultsUnavailable) as excinfo:
         load_results(tmp_path / "nope.json")
     assert "export_results" in str(excinfo.value)
+
+
+# --------------------------------------------------------------------------
+# SAR workbench and bi-directional provenance
+# --------------------------------------------------------------------------
+
+
+def test_sar_uses_fiu_ind_category_structure(client):
+    """The draft organises evidence on the standard headings an analyst works from."""
+    html = client.get("/").text
+    for heading in ("Identity of client", "Nature of transactions", "Activity in accounts"):
+        assert heading in html
+
+
+def test_sar_is_labelled_as_a_draft_and_not_a_filing(client):
+    """A Suspicious Transaction Report is a statutory PMLA filing.
+
+    This page shows a working draft built from an unvalidated model over clusters with no
+    ring-level ground truth. It must say so unmissably, or it becomes a document shaped
+    like a regulatory record while containing model output nobody has verified.
+    """
+    # Whitespace-normalised: the disclaimer wraps across source lines, so a naive
+    # substring check fails on text that is present and correct.
+    html = re.sub(r"\s+", " ", client.get("/").text)
+    assert "working draft" in html.lower()
+    assert "not a filing" in html.lower()
+    assert "not a Suspicious Transaction Report" in html
+    assert "not suitable for regulatory submission" in html
+
+
+def test_sar_does_not_fabricate_filing_identifiers(client):
+    """No reference numbers, filing IDs or officer names that would look official."""
+    html = client.get("/").text.lower()
+    for invented in ("str no", "str ref", "filing reference", "reporting officer",
+                     "acknowledgement number", "fiu ack"):
+        assert invented not in html
+
+
+def test_every_entity_chip_has_a_matching_graph_node(client):
+    """Bi-directional highlighting only works if both ends exist.
+
+    A chip pointing at a node id that is not in the SVG would hover into silence.
+    """
+    # Attributes are split across source lines in the template, so the pattern must be
+    # whitespace-tolerant. An earlier version was not and reported 0 nodes against 80
+    # chips -- a test failure describing a page that was entirely correct.
+    html = re.sub(r"\s+", " ", client.get("/").text)
+    chips = set(re.findall(r'class="sar-entity" data-target="([^"]+)"', html))
+    nodes = set(re.findall(r'class="gn gn-entity"[^>]*?data-id="([^"]+)"', html))
+    assert chips, "no entity chips rendered"
+    assert nodes, "no entity nodes rendered"
+    assert chips <= nodes, f"chips with no node: {sorted(chips - nodes)}"
+
+
+def test_graph_nodes_carry_stable_ids_for_the_reverse_direction(client):
+    """Hovering a node must be able to find its text, which needs an id and a data-id."""
+    html = re.sub(r"\s+", " ", client.get("/").text)
+    assert re.search(r'<circle class="gn gn-entity" id="node-\d+-e\d+"', html)
+    assert "data-entity=" in html
+
+
+def test_provenance_script_is_bidirectional_and_defensive(client):
+    """Both directions wired, and null-guarded rather than assuming the DOM is complete."""
+    html = client.get("/").text
+    assert "direction 1: report text -> graph" in html
+    assert "direction 2: graph -> report text" in html
+    # Guards for the truncated-subgraph case.
+    assert "if (!a || !b) return;" in html
+    assert "if (!id) return;" in html
+
+
+def test_no_external_javascript_or_css_is_loaded(client):
+    """Vanilla only: no CDN, no framework, nothing for the free tier to fetch."""
+    html = client.get("/").text
+    assert "<script src=" not in html
+    assert "cdn." not in html
+    for library in ("d3.", "jquery", "react", "vue"):
+        assert library not in html.lower()
+
+
+def test_highlight_state_is_shared_between_text_and_svg(client):
+    """One class drives both sides, so they cannot drift out of visual sync."""
+    html = client.get("/").text
+    assert ".highlight-provenance" in html
+    assert "circle.gn.highlight-provenance" in html
+    assert 'var HL = "highlight-provenance"' in html

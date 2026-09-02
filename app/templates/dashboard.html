@@ -160,9 +160,47 @@ circle.gn.hit { r: 4.6; }
 .ge.hit { stroke: var(--warn); stroke-width: 1.2; }
 
 .tr { border-bottom: 1.5px dotted var(--accent); cursor: help; background: var(--accent-bg);
-  border-radius: 3px; padding: 0 2px; }
-.tr:hover, .tr.on { background: var(--warn-bg); border-bottom-color: var(--warn);
-  color: var(--warn); }
+  border-radius: 3px; padding: 0 2px; transition: all .2s ease; }
+
+/* ---- SAR workbench: graph left, working draft right ---- */
+.sar { display: grid; grid-template-columns: 240px 1fr; gap: 1.4rem; align-items: start; }
+@media (max-width: 760px) { .sar { grid-template-columns: 1fr; } }
+.sar-graph { position: sticky; top: 1rem; }
+.sar-graph .cgraph { width: 240px; height: 240px; }
+.sar-doc { border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel);
+  padding: 1rem 1.15rem; }
+.sar-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  border-bottom: 1px solid var(--rule); padding-bottom: .55rem; margin-bottom: .7rem; }
+.sar-kicker { font-size: .74rem; text-transform: uppercase; letter-spacing: .09em;
+  font-weight: 700; color: var(--muted); }
+.sar-warn { font-size: .8rem; color: var(--muted); background: var(--warn-bg);
+  border-left: 3px solid var(--warn); padding: .55rem .7rem; margin: 0 0 1rem;
+  border-radius: 0 6px 6px 0; }
+.sar-sec { margin: 0 0 1.15rem; }
+.sar-sec:last-child { margin-bottom: 0; }
+.sar-sec h5 { margin: 0 0 .4rem; font-size: .82rem; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--accent-2); font-weight: 700; }
+.sar-dl { display: grid; grid-template-columns: auto 1fr; gap: .15rem .9rem;
+  font-size: .85rem; margin: .4rem 0 .55rem; }
+.sar-dl dt { color: var(--muted); }
+.sar-dl dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sar-ents { list-style: none; margin: .4rem 0 .6rem; padding: 0; display: flex;
+  flex-wrap: wrap; gap: .35rem; }
+.sar-entity { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .78rem; background: var(--accent-bg); color: var(--accent-2);
+  border: 1px solid transparent; border-radius: 5px; padding: .16rem .45rem;
+  cursor: pointer; transition: all .2s ease; }
+
+/* The single highlight state, shared by text and SVG so both sides look identical. */
+.highlight-provenance { background: var(--warn-bg) !important; color: var(--warn) !important;
+  border-color: var(--warn) !important; }
+.tr.highlight-provenance { border-bottom-color: var(--warn); }
+circle.gn.highlight-provenance, rect.gn.highlight-provenance { fill: var(--warn); }
+circle.gn.highlight-provenance { r: 4.8; }
+line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
+.cgraph .gn, .cgraph .ge { transition: all .2s ease; }
+.gn-entity { cursor: pointer; }
+.gn-entity:focus { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -484,76 +522,123 @@ circle.gn.hit { r: 4.6; }
       {% endif %}
     </summary>
     <div class="cbody">
-      <div class="prov">
-        <span class="tag tag-det">computed by core/</span>
-        <dl>
-          <dt>entities</dt><dd>{{ c.evidence.entity_count }}</dd>
-          <dt>transactions</dt><dd>{{ c.evidence.transaction_count }}</dd>
-          <dt>flagged</dt><dd>{{ c.evidence.flagged_transaction_count }}</dd>
-          <dt>component size</dt><dd>{{ c.evidence.component_size }}</dd>
-          <dt>k-core number</dt><dd>{{ c.evidence.core_number }}</dd>
-          <dt>max degree</dt><dd>{{ c.evidence.max_degree }}</dd>
-          <dt>shared</dt><dd>{{ c.evidence.shared_attributes | join(', ') }}</dd>
-          <dt>distinct cards</dt><dd>{{ c.evidence.distinct_cards }}</dd>
-          <dt>span</dt><dd>{{ c.evidence.span_days }} days</dd>
-          <dt>total amount</dt><dd>₹{{ c.evidence.total_amount_inr | inr }}</dd>
-          <dt>max risk score</dt><dd>{{ "%.4f"|format(c.evidence.max_risk_score) }}</dd>
-          <dt>mean risk score</dt><dd>{{ "%.4f"|format(c.evidence.mean_risk_score) }}</dd>
-        </dl>
-      </div>
+      <div class="sar">
 
-      {% if c.subgraph and c.subgraph.nodes %}
-      <div class="graphwrap">
-        <svg class="cgraph" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"
-             role="img" aria-label="Entity graph for this cluster">
-          {% for e in c.subgraph.edges %}
-            <line class="ge" data-source="{{ e.source }}" data-target="{{ e.target }}"
-                  x1="0" y1="0" x2="0" y2="0" />
-          {% endfor %}
-          {% for n in c.subgraph.nodes %}
-            {% if n.kind == 'entity' %}
-              <circle class="gn gn-entity" data-id="{{ n.id }}"
-                      cx="{{ n.x }}" cy="{{ n.y }}" r="3.2"><title>entity {{ n.label }}</title></circle>
-            {% else %}
-              <rect class="gn gn-attr" data-id="{{ n.id }}"
-                    x="{{ n.x - 2.4 }}" y="{{ n.y - 2.4 }}" width="4.8" height="4.8"
-                    rx="1"><title>{{ n.label }}</title></rect>
-            {% endif %}
-          {% endfor %}
-        </svg>
-        <p class="sub gcap">
-          The actual bipartite subgraph the engine built — circles are entities, squares are
-          the attribute values linking them. Hover a highlighted phrase in the prose to see
-          which part of this the model is describing.
-        </p>
-      </div>
-      {% endif %}
-
-      <div class="prov ai">
-        <span class="tag tag-ai">written by the LLM</span>
-        {% if c.narrative.status == 'OK' %}
-          {% if c.narrative.summary_segments %}
-          <p style="margin:.5rem 0 .3rem" class="prose">
-            {%- for s in c.narrative.summary_segments -%}
-              {%- if s.field -%}
-                <span class="tr" data-target="{{ s.target }}"
-                      title="computed by core/ — {{ s.field }}">{{ s.text }}</span>
-              {%- else -%}{{ s.text }}{%- endif -%}
-            {%- endfor -%}
-          </p>
-          {% else %}
-          <p style="margin:.5rem 0 .3rem">{{ c.narrative.human_summary }}</p>
+        <!-- LEFT: the entity graph the engine actually built -->
+        <div class="sar-graph">
+          {% if c.subgraph and c.subgraph.nodes %}
+          <svg class="cgraph" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"
+               role="img" aria-label="Entity graph for this cluster">
+            {% for e in c.subgraph.edges %}
+              <line class="ge" id="edge-{{ c.evidence.cluster_id }}-{{ loop.index }}"
+                    data-source="{{ e.source }}" data-target="{{ e.target }}"
+                    x1="0" y1="0" x2="0" y2="0" />
+            {% endfor %}
+            {% for n in c.subgraph.nodes %}
+              {% if n.kind == 'entity' %}
+                <circle class="gn gn-entity" id="node-{{ c.evidence.cluster_id }}-{{ n.id }}"
+                        data-id="{{ n.id }}" data-entity="{{ n.label }}"
+                        cx="{{ n.x }}" cy="{{ n.y }}" r="3.2" tabindex="0"
+                        role="button" aria-label="entity {{ n.label }}"><title>entity {{ n.label }}</title></circle>
+              {% else %}
+                <rect class="gn gn-attr" id="node-{{ c.evidence.cluster_id }}-{{ n.id }}"
+                      data-id="{{ n.id }}"
+                      x="{{ n.x - 2.4 }}" y="{{ n.y - 2.4 }}" width="4.8" height="4.8"
+                      rx="1"><title>shared attribute value</title></rect>
+              {% endif %}
+            {% endfor %}
+          </svg>
+          <p class="sub gcap">Circles are entities, squares the attribute values linking
+          them. Hover either side — graph or report — and the other responds.</p>
           {% endif %}
-          <p style="margin:.3rem 0 0"><strong>Suggested action:</strong>
-            {{ c.narrative.suggested_action }}</p>
-          <p class="sub" style="margin:.5rem 0 0">
-            cause <code>{{ c.narrative.probable_cause }}</code> ·
-            self-reported confidence <code>{{ c.narrative.confidence }}</code>
-            — deliberately unvalidated, see below</p>
-        {% else %}
-          <p style="margin:.5rem 0 0"><code>NARRATIVE_UNAVAILABLE</code></p>
-          <p class="sub" style="margin:.3rem 0 0">{{ c.narrative.rejection_reason }}</p>
-        {% endif %}
+        </div>
+
+        <!-- RIGHT: analyst working draft, organised on FIU-IND STR headings -->
+        <div class="sar-doc">
+          <div class="sar-head">
+            <span class="sar-kicker">Suspicious Activity Report — working draft</span>
+            <span class="tag tag-warn">not a filing</span>
+          </div>
+          <p class="sar-warn">Structured on FIU-IND STR headings to organise evidence for an
+          analyst. This is <strong>not a Suspicious Transaction Report</strong> and is not
+          suitable for regulatory submission: the cluster is a statistically anomalous
+          grouping, not a verified ring, and the narrative below is model-generated and
+          unvalidated. Any actual filing is a human decision made on evidence beyond this
+          system.</p>
+
+          <section class="sar-sec">
+            <h5>A · Identity of client</h5>
+            <p class="sub">{{ c.evidence.entity_count }} entit{{ 'y' if c.evidence.entity_count == 1 else 'ies' }}
+            resolved by the <code>card1 + addr1 + (day − D1)</code> fingerprint — a heuristic
+            proxy for a customer ID, not a verified identity.</p>
+            <ul class="sar-ents">
+              {% for n in c.subgraph.nodes if n.kind == 'entity' %}
+              <li><span class="sar-entity" data-target="{{ n.id }}"
+                        data-cluster="{{ c.evidence.cluster_id }}"
+                        tabindex="0">{{ n.label }}</span></li>
+              {% endfor %}
+            </ul>
+            <dl class="sar-dl">
+              <dt>distinct cards</dt><dd>{{ c.evidence.distinct_cards }}</dd>
+              <dt>distinct addresses</dt><dd>{{ c.evidence.distinct_addresses }}</dd>
+              <dt>distinct email domains</dt><dd>{{ c.evidence.distinct_email_domains }}</dd>
+            </dl>
+            <span class="tag tag-det">computed by core/</span>
+          </section>
+
+          <section class="sar-sec">
+            <h5>B · Nature of transactions</h5>
+            <dl class="sar-dl">
+              <dt>transactions in cluster</dt><dd>{{ c.evidence.transaction_count }}</dd>
+              <dt>flagged by the model</dt><dd>{{ c.evidence.flagged_transaction_count }}</dd>
+              <dt>activity span</dt><dd>{{ c.evidence.span_days }} days</dd>
+              <dt>aggregate value</dt><dd>₹{{ c.evidence.total_amount_inr | inr }}</dd>
+              <dt>peak risk score</dt><dd>{{ "%.4f"|format(c.evidence.max_risk_score) }}</dd>
+              <dt>mean risk score</dt><dd>{{ "%.4f"|format(c.evidence.mean_risk_score) }}</dd>
+            </dl>
+            <p class="sub">Value converted at a documented assumed rate; IEEE-CIS amounts are
+            anonymised, so this describes value structure, not literal rupees.</p>
+            <span class="tag tag-det">computed by core/</span>
+          </section>
+
+          <section class="sar-sec">
+            <h5>C · Activity in accounts</h5>
+            <dl class="sar-dl">
+              <dt>connected component size</dt><dd>{{ c.evidence.component_size }}</dd>
+              <dt>k-core number</dt><dd>{{ c.evidence.core_number }}</dd>
+              <dt>maximum degree</dt><dd>{{ c.evidence.max_degree }}</dd>
+              <dt>shared attributes</dt><dd>{{ c.evidence.shared_attributes | join(', ') }}</dd>
+            </dl>
+
+            <div class="prov ai">
+              <span class="tag tag-ai">written by the LLM</span>
+              {% if c.narrative.status == 'OK' %}
+                {% if c.narrative.summary_segments %}
+                <p class="prose" style="margin:.5rem 0 .3rem">
+                  {%- for seg in c.narrative.summary_segments -%}
+                    {%- if seg.field -%}
+                      <span class="tr" data-target="{{ seg.target }}"
+                            data-cluster="{{ c.evidence.cluster_id }}" tabindex="0"
+                            title="computed by core/ — {{ seg.field }}">{{ seg.text }}</span>
+                    {%- else -%}{{ seg.text }}{%- endif -%}
+                  {%- endfor -%}
+                </p>
+                {% else %}
+                <p style="margin:.5rem 0 .3rem">{{ c.narrative.human_summary }}</p>
+                {% endif %}
+                <p style="margin:.3rem 0 0"><strong>Suggested action:</strong>
+                  {{ c.narrative.suggested_action }}</p>
+                <p class="sub" style="margin:.5rem 0 0">
+                  cause <code>{{ c.narrative.probable_cause }}</code> ·
+                  self-reported confidence <code>{{ c.narrative.confidence }}</code>
+                  — deliberately unvalidated</p>
+              {% else %}
+                <p style="margin:.5rem 0 0"><code>NARRATIVE_UNAVAILABLE</code></p>
+                <p class="sub" style="margin:.3rem 0 0">{{ c.narrative.rejection_reason }}</p>
+              {% endif %}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   </details>
@@ -665,81 +750,136 @@ circle.gn.hit { r: 4.6; }
 </div>
 
 <script>
-/* Cluster subgraph rendering and prose->graph provenance highlighting.
+/* Bi-directional provenance highlighting between the SAR draft and the entity graph.
  *
- * This script draws nothing it was not given. Node coordinates are computed server-side
- * in scripts/export_results.py and baked into the SVG; all this does is join the edge
- * endpoints to the node positions already in the DOM, and toggle classes on hover.
- * It never computes a score, a layout, or a relationship.
+ * This script computes nothing. Node coordinates come from scripts/export_results.py and
+ * are already in the SVG; all that happens here is joining edge endpoints to node
+ * positions and toggling one shared CSS class. It never derives a score, a layout, or a
+ * relationship -- consistent with the rule that the web layer renders and does not compute.
+ *
+ * Everything is null-guarded: a text span may reference a node that was truncated out of a
+ * large subgraph, and a hover must degrade to doing nothing rather than throwing.
  */
 (function () {
   "use strict";
 
-  // Edges are emitted with placeholder coordinates because only the browser knows the
-  // final node positions after layout. Join them to their endpoints here.
+  var HL = "highlight-provenance";
+
+  /* Edges are emitted with placeholder coordinates because their endpoints are only known
+   * once the node elements exist. Join them here, once, at load. */
   document.querySelectorAll(".cgraph").forEach(function (svg) {
     var pos = {};
     svg.querySelectorAll(".gn").forEach(function (node) {
+      if (!node.dataset.id) return;
       pos[node.dataset.id] = node.tagName === "circle"
         ? { x: +node.getAttribute("cx"), y: +node.getAttribute("cy") }
         : { x: +node.getAttribute("x") + 2.4, y: +node.getAttribute("y") + 2.4 };
     });
     svg.querySelectorAll(".ge").forEach(function (edge) {
-      var a = pos[edge.dataset.source], b = pos[edge.dataset.target];
-      if (!a || !b) return;
+      var a = pos[edge.dataset.source];
+      var b = pos[edge.dataset.target];
+      if (!a || !b) return;                       // endpoint truncated out of the subgraph
       edge.setAttribute("x1", a.x); edge.setAttribute("y1", a.y);
       edge.setAttribute("x2", b.x); edge.setAttribute("y2", b.y);
     });
   });
 
-  function clusterOf(el) {
+  function graphFor(el) {
     var body = el.closest(".cbody");
     return body ? body.querySelector(".cgraph") : null;
   }
 
-  /* Which graph elements a traced phrase refers to.
-   *   entities   -> every entity node
-   *   attributes -> every attribute node
-   *   attr:NAME  -> attribute nodes specifically (the most precise highlight available;
-   *                 the export does not carry per-attribute node identities, so this
-   *                 lights the attribute layer rather than pretending to know which one)
-   *   all        -> the whole cluster
+  /* Which graph elements a target refers to.
+   *   e123 / a456  -> that specific node, by data-id
+   *   entities     -> every entity node
+   *   attributes   -> every attribute node
+   *   attr:NAME    -> the attribute layer (the export does not carry per-attribute node
+   *                   identities, so this lights the layer rather than pretending to know
+   *                   which value it was)
+   *   anything else-> the whole cluster
    */
-  function select(svg, target) {
+  function nodesFor(svg, target) {
     if (!svg || !target) return [];
     if (target === "entities") return svg.querySelectorAll(".gn-entity");
     if (target === "attributes" || target.indexOf("attr:") === 0) {
       return svg.querySelectorAll(".gn-attr");
     }
+    var one = svg.querySelector('.gn[data-id="' + CSS.escape(target) + '"]');
+    if (one) return [one];
     return svg.querySelectorAll(".gn");
   }
 
-  function light(el, on) {
-    var svg = clusterOf(el);
+  /* Text spans pointing at a target, scoped to the same cluster so hovering a node in one
+   * cluster never lights up prose in another. */
+  function textFor(body, target) {
+    if (!body || !target) return [];
+    return body.querySelectorAll(
+      '[data-target="' + CSS.escape(target) + '"]'
+    );
+  }
+
+  function setGraph(svg, target, on) {
     if (!svg) return;
-    var nodes = select(svg, el.dataset.target);
+    var nodes = nodesFor(svg, target);
     if (!nodes.length) return;
 
     svg.classList.toggle("lit", on);
-    nodes.forEach(function (n) { n.classList.toggle("hit", on); });
-
-    // An edge counts as touched when both of its endpoints are lit.
-    var litIds = {};
-    nodes.forEach(function (n) { litIds[n.dataset.id] = true; });
-    svg.querySelectorAll(".ge").forEach(function (edge) {
-      var touches = litIds[edge.dataset.source] || litIds[edge.dataset.target];
-      edge.classList.toggle("hit", on && !!touches);
+    var lit = {};
+    Array.prototype.forEach.call(nodes, function (n) {
+      n.classList.toggle(HL, on);
+      n.classList.toggle("hit", on);
+      if (n.dataset.id) lit[n.dataset.id] = true;
     });
-    el.classList.toggle("on", on);
+
+    // An edge lights when either endpoint is lit.
+    svg.querySelectorAll(".ge").forEach(function (edge) {
+      var touched = lit[edge.dataset.source] || lit[edge.dataset.target];
+      edge.classList.toggle(HL, on && !!touched);
+      edge.classList.toggle("hit", on && !!touched);
+    });
   }
 
-  document.querySelectorAll(".tr").forEach(function (span) {
-    span.addEventListener("mouseenter", function () { light(span, true); });
-    span.addEventListener("mouseleave", function () { light(span, false); });
-    // Keyboard parity: the highlight is the evidence, so it must not be mouse-only.
-    span.setAttribute("tabindex", "0");
-    span.addEventListener("focus", function () { light(span, true); });
-    span.addEventListener("blur", function () { light(span, false); });
+  /* --- direction 1: report text -> graph --- */
+  document.querySelectorAll(".tr, .sar-entity").forEach(function (span) {
+    var target = span.dataset.target;
+    if (!target) return;
+
+    function on(state) {
+      span.classList.toggle(HL, state);
+      setGraph(graphFor(span), target, state);
+    }
+
+    span.addEventListener("mouseenter", function () { on(true); });
+    span.addEventListener("mouseleave", function () { on(false); });
+    // Keyboard parity: the highlight IS the evidence, so it must not be mouse-only.
+    if (!span.hasAttribute("tabindex")) span.setAttribute("tabindex", "0");
+    span.addEventListener("focus", function () { on(true); });
+    span.addEventListener("blur", function () { on(false); });
+  });
+
+  /* --- direction 2: graph -> report text --- */
+  document.querySelectorAll(".cgraph .gn").forEach(function (node) {
+    var id = node.dataset.id;
+    if (!id) return;
+    var body = node.closest(".cbody");
+    var svg = node.closest(".cgraph");
+
+    function on(state) {
+      setGraph(svg, id, state);
+      // Light the entity chip naming this node, plus any prose phrase whose target is the
+      // layer this node belongs to -- so hovering an attribute square also lights the
+      // "shared card1" phrase that describes it.
+      var layer = node.classList.contains("gn-entity") ? "entities" : "attributes";
+      var spans = [];
+      Array.prototype.push.apply(spans, textFor(body, id));
+      Array.prototype.push.apply(spans, textFor(body, layer));
+      spans.forEach(function (span) { span.classList.toggle(HL, state); });
+    }
+
+    node.addEventListener("mouseenter", function () { on(true); });
+    node.addEventListener("mouseleave", function () { on(false); });
+    node.addEventListener("focus", function () { on(true); });
+    node.addEventListener("blur", function () { on(false); });
   });
 })();
 </script>
