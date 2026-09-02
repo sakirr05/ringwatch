@@ -4,8 +4,12 @@
 
 Razorpay AI Buildathon 2026 · Track 02 (AI Risk Manager)
 
-**Live demo:** _(deploy in progress — see [Deploying the demo](#deploying-the-demo))_
-· `GET /` dashboard · `POST /webhooks/razorpay` webhook receiver
+**Live demo: https://ringwatch.onrender.com**
+· [dashboard](https://ringwatch.onrender.com/) · [raw results JSON](https://ringwatch.onrender.com/api/results)
+· `POST /webhooks/razorpay` webhook receiver
+
+> On Render's free tier the instance spins down after ~15 minutes idle, so **the first
+> request may take 30–60 seconds**. Subsequent requests are fast.
 
 > **What is live vs what is local.** The deployed service **renders committed results and
 > receives webhooks. It never retrains, rescores, or recomputes a metric** — it has neither
