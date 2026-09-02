@@ -605,11 +605,20 @@ python scripts/export_results.py     # freeze results -> docs/results.json
 uvicorn app.main:app --reload        # http://localhost:8000
 ```
 
-The web layer renders `docs/results.json` and nothing else.
-`tests/test_app.py::test_app_layer_computes_nothing` walks the AST of every module under
-`app/` and fails if any of them imports a modelling library or an evaluation module — the
-same technique that enforces the AI/determinism boundary, applied to the web layer. A page
-load structurally cannot produce a number.
+The dashboard renders `docs/results.json` and nothing else, enforced by the same
+import-graph technique that guards the AI/determinism boundary:
+
+- `test_dashboard_render_path_touches_no_computation` — `app/results.py` is the dashboard's
+  entire relationship with the analysis, and it imports nothing from `core/` at all. **A
+  page load cannot produce a number.**
+- `test_app_modules_do_not_directly_import_modelling_libraries` — no request handler pulls
+  a model into module scope.
+
+Stated precisely, because the distinction matters: the **webhook** path *does* compute — it
+reaches LightGBM through `core.demo_score` in a background task, which is the entire point
+of the demonstration-scoring track described below. The guarantee is that the page
+displaying the reported metrics has no path to producing one, not that the process contains
+no computation anywhere.
 
 To receive real webhooks locally, expose the port and point a **test-mode** Razorpay
 webhook at it:

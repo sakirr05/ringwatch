@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generated_at": "2026-09-01T18:47:25+00:00",
-    "git_commit": "c29a02a",
+    "generated_at": "2026-09-02T10:15:30+00:00",
+    "git_commit": "596b0d6",
     "note": "Produced by scripts/export_results.py from cached model scores. The web app renders this file and computes nothing."
   },
   "dataset": {

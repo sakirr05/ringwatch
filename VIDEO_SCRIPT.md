@@ -1,111 +1,52 @@
 # RingWatch — 5-minute pitch video script
 
-Unlisted YouTube/Loom. Target 4:45–5:00. Screen recording with voiceover; no slides
-except the architecture diagram. Record the terminal at a readable font size.
+Unlisted YouTube/Loom. Target 4:45–5:00. Screen recording with voiceover. Two windows only:
+a browser on the live demo, and a terminal. No slides.
 
-**Before recording:** run `python run.py --stage ablation` once so model artifacts are
-cached — otherwise there is a 3-minute silence per variant on camera. The LLM cache
-should also be warm so the narrate stage returns instantly.
+**The through-line:** Razorpay's own thesis is that verification capacity, not generation
+speed, is the bottleneck. This project takes that literally — so the evaluation harness is
+the deliverable, and the proof that it works is that it disconfirmed my own hypothesis
+twice.
 
 ---
 
-## 0:00–0:40 · The problem (why this matters)
+## Before recording
+
+```bash
+python run.py --stage ablation          # warm the model/score caches
+python run.py --stage narrate           # warm the LLM cache (no dead air on camera)
+python scripts/export_results.py        # refresh docs/results.json
+uvicorn app.main:app --port 8000        # leave running
+```
+
+- [ ] Terminal font large enough to read at 720p
+- [ ] Browser on the live Render URL (or localhost:8000 if not yet deployed)
+- [ ] A signed webhook request ready to paste (see §6)
+- [ ] Video set to **unlisted**, link tested in a private window
+
+---
+
+## 0:00–0:35 · The problem, and the thesis
 
 > "Card-testing rings and coordinated chargeback fraud don't look like fraud one
-> transaction at a time. Each payment sits inside a perfectly normal distribution —
-> ordinary amount, ordinary merchant, ordinary hour. The only real signal is the
-> *coordination between* them. A row-by-row classifier is structurally blind to that:
-> it scores each transaction independently and never sees that forty of them share a
-> fingerprint."
+> transaction at a time. Each payment sits inside a perfectly normal distribution. The only
+> signal is the *coordination between* them — and a row-by-row classifier is structurally
+> blind to that."
 
-Show: the repo README problem statement. Keep this tight — 40 seconds, no more.
+> "But the harder problem is the one Razorpay's own brief names: in AI-native financial
+> systems, the bottleneck isn't generation speed, it's **verification capacity**. So I built
+> RingWatch around that claim. The fraud detector took an afternoon. The evaluation harness
+> took the rest of the project — and it's the reason I can tell you, with confidence
+> intervals, that my central idea didn't work."
 
-> "RingWatch adds a classical graph layer to surface that coordination — and, just as
-> importantly, measures honestly whether doing so actually helps."
+## 0:35–1:20 · The live demo, leading with the failure
 
-## 0:40–1:30 · The architecture boundary (the AI-judgment story)
+Open the deployed URL on camera. Scroll to section 1.
 
-Show: the Mermaid architecture diagram in the README, full screen.
+> "This is the deployed dashboard, and the first thing it shows is the negative result.
+> That's deliberate — it's the thesis, not the embarrassment."
 
-> "The design rule this whole project is built around: one box computes numbers, a
-> completely separate box writes sentences, and code — not convention — stops the second
-> from touching the first."
-
-Point at the green box:
-
-> "Everything green is deterministic. The temporal split, the LightGBM classifier, the
-> connected components, the k-core decomposition, every metric. Every number in this
-> system is produced here."
-
-Point at the blue box:
-
-> "The language model lives over here. It receives clusters the deterministic engine has
-> *already flagged*, plus the evidence it already computed, and it writes prose. It never
-> decides a match, never computes an amount, never sets a flag."
-
-**Then prove it on camera** — this is the moment that separates this from a claim:
-
-```
-pytest tests/test_ai_boundary.py -v
-```
-
-> "This isn't a promise in a README. This test parses the syntax tree of every module in
-> the AI package and fails if any of them can even *import* the scoring engine. The model
-> has no code path to a number."
-
-## 1:30–2:15 · The graph layer (the differentiating skill)
-
-Show: `core/graph.py`, scroll to `k_core_numbers`.
-
-> "The k-core decomposition is Batagelj–Zaversnik bucket peeling, written directly rather
-> than pulled from a library — I shipped this algorithm in the Boost Graph Library inside
-> pgRouting during Google Summer of Code, and I wanted it to be load-bearing here."
-
-Show: `pytest tests/test_graph.py -q` (41 tests, <1s).
-
-> "It's validated against networkx as an independent oracle on twelve random graphs and
-> six pathological ones — barbell, karate club, complete bipartite, wheel, lollipop,
-> ladder."
-
-Show the percolation table in the module docstring.
-
-> "Hub suppression isn't a taste call. I swept the cap and found a phase transition: at
-> cap 5 the largest component is 39 entities; at cap 10 it's 1,752; at 50 it's 43,000 —
-> one giant hairball where 'component' stops meaning 'candidate ring.' The cap sits just
-> below the transition."
-
-## 2:15–3:15 · Live run and the ring evidence
-
-Run on camera:
-
-```
-python run.py --stage graph
-```
-
-> "The entity graph builds in under two seconds."
-
-Point at the ring-concentration test output.
-
-> "Here's the honest part. My first instinct was to tabulate fraud rate by core number —
-> and it showed nothing. Flat, non-monotonic. On that evidence the conclusion would have
-> been 'the graph finds nothing.'
->
-> That was the wrong statistic. Rings are *rare* — a handful of real ones among thousands
-> of benign components — so averaging drowns them. The right question is whether fraud
-> *concentrates*: given the number of fraudulent entities, are they scattered the way
-> chance would scatter them, or bunched into components that are entirely fraudulent?
->
-> Against a label-permutation null: twelve all-fraud components observed, 1.4 expected.
-> That's **z = +8.8**, and it's stable across every hub cap I tried."
-
-## 3:15–4:15 · The result that didn't work
-
-**This is the section judges will remember. Do not skip it, soften it, or bury it later.**
-
-Show the ablation table with the bootstrap CIs.
-
-> "And here is where the project failed. I built this graph layer to improve fraud
-> detection. Measured honestly, it does not."
+Point at the ablation table.
 
 | variant | AUC-PR | Δ | 95% CI |
 |---|---|---|---|
@@ -114,81 +55,150 @@ Show the ablation table with the bootstrap CIs.
 | + k-core | 0.5123 | −0.0064 | **significantly worse** |
 | + full graph | 0.5168 | −0.0020 | not significant |
 
-> "My first instinct was that a two-thousandths delta is noise, and I could call the layer
-> 'roughly neutral' and move on. Catching that instinct is the most important thing I did
-> on this project. A raw delta from a single run isn't a result — so I ran a paired
-> bootstrap, four hundred resamples, both models scored on identical rows.
->
-> It showed 'roughly neutral' was wrong in *both* directions. Two variants are genuinely
-> indistinguishable from baseline. And k-core isn't noise at all — its confidence interval
+> "I built a classical graph layer to improve fraud detection. Measured honestly, it does
+> not. My first instinct was that two thousandths is noise and I could call it 'roughly
+> neutral' — catching that instinct is the most important thing I did here. A single-run
+> delta isn't a result, so I ran a paired bootstrap. It showed 'roughly neutral' was wrong
+> in *both* directions: two variants are genuinely indistinguishable, and k-core's interval
 > excludes zero. It's significantly **worse**."
 
-> "The reason is coverage, not a bug. The graph reaches 5.4% of test rows, and the rings
-> are real but rare — twelve of them. Twelve rings can't move a metric averaged over
-> 118,000 transactions when the model already has 433 features. On the linked rows alone
-> the estimate does turn positive, +0.017 — but that interval spans zero too. 136 fraud
-> cases can't resolve an effect that small, so I report it as a hypothesis, not a result."
+> "One more thing about this page: it computes nothing. Every number is a committed
+> artifact. A test walks the import graph of the web layer and fails if it can even import a
+> modelling library."
 
-> "So I retargeted the claim instead of tuning the code. The graph does one thing well —
-> it surfaces anomalous clusters for an analyst, which is what feeds the narrative layer —
-> and it does not improve prediction. Both of those are in the README, in that order."
+## 1:20–2:00 · The reconciliation
 
-Say this part explicitly:
+Scroll to section 2 — the two panels side by side.
 
-> "The obvious alternative was to keep trying link keys and caps until something beat
-> baseline. With enough configurations, one of them would have, by chance. That's
-> p-hacking, and I couldn't have honestly answered 'how many variants did you try?' in
-> this interview. So I didn't."
+> "Here's what makes this interesting rather than just a failure. Fraud *does* cluster in
+> the entity graph: twelve entirely-fraudulent components against 1.4 expected under a
+> label-permutation null. That's **z = +8.8**, stable across every hub cap I tried."
 
-Then show the `HONEST NEGATIVE CASE` block.
+> "And right beside it: the graph reaches **5.38%** of test rows. Those two numbers together
+> are the whole argument. The ring structure is real, and twelve rings cannot move a metric
+> averaged over 118,000 transactions. Rare structure is real structure and still can't shift
+> an average."
 
-> "And at the row level: these are *legitimate* transactions the graph pushed toward being
-> declined — real customers who'd be insulted because they happen to sit in a dense
-> component."
+> "What I don't claim: IEEE-CIS has transaction-level labels, not ring labels. So those
+> twelve are statistically anomalous clusters, not verified rings. There is no 'N rings
+> caught' number anywhere in this project, because it couldn't be validated."
 
-Then the two operating points:
+## 2:00–2:45 · The determinism boundary, proven not asserted
 
-> "Same honesty applies to the threshold. The cost-minimising threshold declines 5% of
-> all legitimate traffic. Arithmetically correct, operationally unshippable — and the
-> reason is that my cost model deliberately doesn't monetise the churn from insulting a
-> good customer, because putting a number on that would be inventing data. An unpriced
-> cost reads to an optimiser as a free one. So I report both points, and the gap between
-> them *is* the honest statement of what's missing."
+Scroll to section 5, expand a cluster.
 
-Show `FAILURE_LOG.md`, scroll through the pivot entry.
+> "Every field here is tagged. Green was computed by deterministic code. Blue was written by
+> the language model. The model receives those numbers as frozen evidence and writes prose
+> about them — it never computes a score, sets a flag, or picks a cluster. Any figure in its
+> output that wasn't in the evidence it was handed is rejected."
 
-> "I also abandoned a working project to build this one. Day 1 was a reconciliation
-> agent — it ran, tests passed. But I'd authored the synthetic data *and* graded my own
-> matcher against it. A closed loop that proves nothing. That's entry one in the failure
-> log, and the code is still in the repo under legacy/."
+Switch to terminal:
 
-## 4:15–4:45 · Ground-truth honesty and limitations
+```bash
+pytest tests/test_ai_boundary.py tests/test_app.py -q
+```
 
-> "The claim I am **not** making: RingWatch does not report 'N rings caught.' IEEE-CIS has
-> transaction-level fraud labels, not ring labels. There is no ground truth to validate a
-> ring count against, so any such number would be fabricated. The two claims I can defend
-> are that fraud clusters more densely than chance allows, and that graph features produce
-> a measured PR-AUC lift on a temporally held-out test set."
+> "That isn't a promise in a README. These tests parse the syntax tree of every module in
+> the AI layer and the web layer and fail if either can reach the scoring engine. The
+> boundary is enforced by code."
 
-> "Also stated plainly: this is **detection-only**. It never generates, simulates, or
-> optimizes evasive transactions, and contains no capability to do so."
+Optionally show `core/graph.py` → `k_core_numbers`:
 
-Show the limitations section: entity resolution is a heuristic, `addr1` has only 332
-distinct values, ~8% graph coverage, single dataset.
+> "The k-core decomposition is Batagelj–Zaversnik peeling, written directly rather than
+> imported — I shipped this algorithm in the Boost Graph Library inside pgRouting during
+> Google Summer of Code. It's validated against networkx on twelve random graphs and six
+> pathological ones."
 
-## 4:45–5:00 · Close
+## 2:45–3:40 · The live Razorpay webhook, and what it revealed
 
-> "Everything here is reproducible from a clean clone: fetch the data, run the pipeline,
-> get these exact numbers. Deterministic seeds throughout, and the tests cover the
-> temporal split, the graph algorithms, and the AI boundary. Thanks for watching."
+Send a signed test event on camera:
+
+```bash
+SIG=$(python3 -c "import hmac,hashlib;print(hmac.new(b'$SECRET',open('payload.json','rb').read(),hashlib.sha256).hexdigest())")
+curl -X POST $URL/webhooks/razorpay \
+  -H "X-Razorpay-Signature: $SIG" -H "X-Razorpay-Event-Id: evt_demo_001" \
+  --data-binary @payload.json
+```
+
+Refresh the dashboard, section 6.
+
+> "Real test-mode webhook. Signature is HMAC over the **raw request bytes** — not a parsed
+> and re-serialised body, which changes the bytes and breaks verification on payloads nobody
+> tampered with. There's a test that reproduces exactly that bug. Idempotent on the event
+> ID, because Razorpay delivers at-least-once. And it returns 200 before any analysis,
+> because Razorpay disables endpoints slower than five seconds."
+
+**Then the finding — this is the part worth the airtime:**
+
+> "Building this surfaced something better than the feature. The obvious version is 'score
+> incoming payments with the model.' That isn't honestly possible. The classifier expects
+> **433 features**. A Razorpay payload supplies **three**. Everything else is Vesta's
+> proprietary engineered columns — they don't exist in any processor's webhook."
+
+> "LightGBM will happily accept 430 missing values and hand me a number. On a project that
+> abandoned its predecessor for being a closed loop, putting that on screen as a fraud score
+> would have discredited everything else. So there are two tracks. The graph analysis is
+> real — topology assumes no distribution, so those algorithms transfer to a new payment
+> ecosystem intact. The model score is shown with a *measured* coverage figure, three of
+> 433, and labelled as demonstrating the ingestion path, not assessing the transaction."
+
+> "The contrast is the actual result: **the graph transfers, the trained model doesn't.**"
+
+## 3:40–4:20 · Incremental k-core, and a prediction I got wrong
+
+Terminal:
+
+```bash
+python scripts/benchmark_incremental.py
+```
+
+> "Last piece. Production fraud graphs stream; this one rebuilds in batch. So I implemented
+> incremental k-core maintenance under edge insertion, and before benchmarking I wrote down
+> a prediction — that it would lose on this graph."
+
+> "It won. By 2.8×. Full replay in 58 milliseconds against 164 for a rebuild, and a
+> crossover at 282% of the graph's edges rather than the 1–5% I predicted."
+
+> "I anchored on the batch build being fast and never estimated the candidate set size,
+> which is the only quantity that matters — it's 2.8 vertices. The prediction stays in the
+> repo verbatim with the outcome underneath it, because a pre-registration you quietly amend
+> afterwards is worth nothing."
+
+> "And the benchmark found what my prediction missed entirely: the answer **inverts with
+> density**. On dense graphs incremental is 667 times *slower*. So the honest claim isn't
+> 'incremental k-core is faster' — it's 'faster on sparse entity graphs, which is what
+> payment fingerprint graphs happen to be.'"
+
+> "Correctness is exact against the batch implementation as an oracle — asserted after every
+> single insertion, not just at the end."
+
+## 4:20–5:00 · Limitations, and close
+
+Scroll the README limitations section.
+
+> "What I'd want a reviewer to know. The graph layer doesn't improve prediction — that's
+> stated at the top of the README, not buried. The classifier's probabilities are
+> systematically under-confident, which is part of why the cost-optimal threshold would
+> decline 5% of legitimate traffic and is unshippable. The LLM's confidence field is
+> deliberately unvalidated, because twelve clusters and no ring labels can't support a
+> calibration claim — and faking one would repeat the exact mistake that got my first
+> project abandoned."
+
+> "This is detection-only. It never generates or optimises evasive transactions and has no
+> capability to."
+
+> "Everything reproduces from a clean clone: fetch the data, run the pipeline, get these
+> numbers. 213 tests covering the temporal split, the graph algorithms against networkx, the
+> LLM schema and its number-provenance guard, the webhook's signature and idempotency, and
+> the import boundaries. Thanks for watching."
 
 ---
 
-## Recording checklist
+## If you overrun
 
-- [ ] Model artifacts cached (`data/cache/scores_*.npy`) so no dead air
-- [ ] LLM response cache warm
-- [ ] Terminal font large enough to read at 720p
-- [ ] Architecture diagram rendered (GitHub renders the Mermaid natively)
-- [ ] Video set to **unlisted**, link tested in a private window
-- [ ] Total runtime under 5:00
+Cut in this order — never cut the negative result or the reconciliation, they're the spine:
+
+1. The pgRouting/networkx aside in §2:00 (30s)
+2. The calibration line in §4:20 (10s)
+3. The incremental-k-core section down to just "I predicted it would lose; it won by 2.8×,
+   and the prediction is still in the repo" (25s)

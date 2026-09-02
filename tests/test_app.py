@@ -52,23 +52,47 @@ def test_there_are_app_modules_to_check():
 
 
 @pytest.mark.parametrize("path", app_source_files(), ids=lambda p: p.name)
-def test_app_layer_computes_nothing(path: Path):
-    """No module under app/ may import a modelling or analysis library.
+def test_app_modules_do_not_directly_import_modelling_libraries(path: Path):
+    """No module under app/ imports a modelling library directly.
 
-    If this fails, a web request can trigger a computation, and the numbers on the
-    dashboard are no longer guaranteed to be the numbers the pipeline produced and
-    committed.
+    SCOPE, STATED PRECISELY. This checks *direct* imports only. `app/main.py` does reach
+    LightGBM transitively, through `core.demo_score`, in the webhook's background task —
+    that is deliberate and is the whole point of the demonstration-scoring track. So this
+    test does NOT prove "the app cannot compute anything"; an earlier version of it was
+    named as though it did, which was an overclaim of exactly the kind this project has had
+    to correct elsewhere.
 
-    `core.graph` is permitted for the webhook's live structural analysis: those are pure
-    graph algorithms over live events, not model scoring, and they produce no metric that
-    appears in the reported results. Everything that yields a *reported number* is banned.
+    What it does prove: no request handler pulls a model into its own module scope, so the
+    web layer cannot casually acquire the ability to produce a reported metric. The
+    stronger guarantee — that the *dashboard rendering path* computes nothing — is asserted
+    separately in `test_dashboard_render_path_touches_no_computation`.
     """
     banned = {"lightgbm", "sklearn", "xgboost", "torch", "scipy"}
     offending = {m.split(".")[0] for m in imported_modules(path)} & banned
     assert not offending, (
-        f"{path.name} imports {sorted(offending)}; the web layer must render precomputed "
-        "results, not compute them."
+        f"{path.name} directly imports {sorted(offending)}; the web layer must render "
+        "precomputed results, not compute them."
     )
+
+
+def test_dashboard_render_path_touches_no_computation():
+    """The page that displays results must have no path to producing one.
+
+    This is the guarantee that actually matters, and it is narrow enough to be true:
+    `app/results.py` is the dashboard's entire relationship with the analysis, and it reads
+    a JSON file. It imports nothing from `core/`, transitively or otherwise.
+    """
+    results_module = APP_DIR / "results.py"
+    imports = imported_modules(results_module)
+
+    reachable_core = {m for m in imports if m == "core" or m.startswith("core.")}
+    assert not reachable_core, (
+        f"app/results.py imports {sorted(reachable_core)}; the dashboard's data path must "
+        "read the committed artifact and nothing else."
+    )
+
+    banned = {"lightgbm", "sklearn", "xgboost", "torch", "scipy", "numpy", "pandas"}
+    assert not ({m.split(".")[0] for m in imports} & banned)
 
 
 @pytest.mark.parametrize("path", app_source_files(), ids=lambda p: p.name)
