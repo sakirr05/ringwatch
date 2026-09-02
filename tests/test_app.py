@@ -284,3 +284,71 @@ def test_highlight_state_is_shared_between_text_and_svg(client):
     assert ".highlight-provenance" in html
     assert "circle.gn.highlight-provenance" in html
     assert 'var HL = "highlight-provenance"' in html
+
+
+# --------------------------------------------------------------------------
+# report numbering and print output
+# --------------------------------------------------------------------------
+
+
+def test_sections_are_numbered_by_css_counters(client):
+    """Numbering is generated, not hand-written.
+
+    Hand-numbered sections drift the moment one is added or reordered; counters renumber
+    themselves. Asserted on the mechanism rather than on rendered digits, since the numbers
+    only exist at paint time.
+    """
+    html = client.get("/").text
+    assert "counter-reset: sec" in html
+    assert 'content: counter(sec) ". "' in html
+    # Fields carry section.field numbering (1.1, 1.2, ...).
+    assert 'counter(sec) "." counter(field)' in html
+
+
+def test_no_hand_written_section_prefixes_remain(client):
+    """Leftover 'A ·' next to a generated '1.' would render as '1. A · Identity'."""
+    html = client.get("/").text
+    for stale in ("A · Identity", "B · Nature", "C · Activity"):
+        assert stale not in html
+
+
+def test_print_stylesheet_exists(client):
+    html = client.get("/").text
+    assert "@media print" in html
+    assert "@page" in html
+
+
+def test_print_hides_analysis_but_keeps_the_drafts(client):
+    """Paper should carry the reports, not the model-evaluation sections around them."""
+    html = client.get("/").text
+    print_css = html[html.index("@media print"):]
+    # The analysis chrome is hidden...
+    assert ".masthead" in print_css and "display: none" in print_css
+    # ...and collapsed drafts are forced open, or printing would emit blank pages.
+    assert "details > .cbody { display: block !important" in print_css
+
+
+def test_the_disclaimer_survives_printing(client):
+    """The single most important thing to get right here.
+
+    A printed page separated from its banner is a document that looks like a regulatory
+    report with no indication it is neither reviewed nor a filing. So the disclaimer is
+    made MORE prominent on paper, and repeated at the top of every printed draft.
+    """
+    html = client.get("/").text
+    print_css = html[html.index("@media print"):]
+
+    # It is never hidden in print.
+    assert ".sar-warn { border: 1.5pt solid #000 !important" in print_css
+    assert ".print-only { display: block !important; }" in print_css
+
+    # And a per-draft print header repeats the essential statement.
+    results = load_results()
+    assert html.count("NOT a Suspicious Transaction Report") >= len(results["clusters"])
+
+
+def test_each_printed_draft_starts_on_its_own_page(client):
+    html = client.get("/").text
+    print_css = html[html.index("@media print"):]
+    assert "page-break-before: always" in print_css
+    assert "page-break-inside: avoid" in print_css
