@@ -221,6 +221,84 @@ figcaption { font-size: .82rem; color: var(--muted); margin-top: .5rem; }
   verified rings.</p>
 
 
+  {% if vw %}
+  <!-- 2b ────────────────────────────────────────────────────────── -->
+  <h2>2b. Does it matter where the money is?</h2>
+  <p class="sub">The obvious objection to the result above, tested rather than argued.</p>
+
+  <p>AUC-PR is <strong>count-uniform</strong> — it treats a small fraud and a large one
+  identically. PayPal's engineers report optimising for “dollar-weighted fraud detection”,
+  which raises a fair challenge: maybe the graph layer only looks useless because the metric
+  ignores value.</p>
+
+  <div class="cols">
+    <div class="panel">
+      <h4>Fraud value in graph-linked rows</h4>
+      <div class="big">{{ "%.2f"|format(vw.concentration.enrichment) }}×<small> enrichment</small></div>
+      <p class="sub" style="margin-bottom:0">
+        {{ "%.2f"|format(vw.concentration.count_share * 100) }}% of fraud <em>count</em> vs
+        {{ "%.2f"|format(vw.concentration.value_share * 100) }}% of fraud <em>value</em>.
+        Value weighting can only change a conclusion if the favoured subgroup carries
+        disproportionate value. It does not.
+      </p>
+    </div>
+    <div class="panel">
+      <h4>Comparisons made</h4>
+      <div class="big">{{ vw.n_comparisons }}<small> tests</small></div>
+      <p class="sub" style="margin-bottom:0">
+        {{ vw.variants | length - 1 }} variants × 2 weightings. At 95% confidence each, the
+        chance of at least one false positive is ~34% — so every interval below is also
+        reported Bonferroni-corrected across the family.
+      </p>
+    </div>
+  </div>
+
+  <div class="overflow">
+  <table>
+    <thead>
+      <tr><th>variant</th><th class="num">AUC-PR</th><th class="num">value-weighted</th>
+          <th class="num">Δ value</th><th class="num">corrected 99.4% CI</th>
+          <th>survives correction</th></tr>
+    </thead>
+    <tbody>
+    {% for row in vw.variants %}
+      <tr class="{% if row.key == 'baseline' %}is-baseline{% endif %}">
+        <td>{{ row.label }}</td>
+        <td class="num">{{ "%.4f"|format(row.auc_pr) }}</td>
+        <td class="num">{{ "%.4f"|format(row.value_weighted_ap) }}</td>
+        <td class="num">{% if row.value_delta is defined %}{{ "%+.4f"|format(row.value_delta) }}{% else %}—{% endif %}</td>
+        <td class="num">{% if row.value_ci_corrected is defined %}[{{ "%+.4f"|format(row.value_ci_corrected[0]) }}, {{ "%+.4f"|format(row.value_ci_corrected[1]) }}]{% else %}—{% endif %}</td>
+        <td>{% if row.key == 'baseline' %}<span class="tag tag-det">baseline</span>
+            {% elif row.value_survives_correction %}<span class="tag tag-det">yes</span>
+            {% else %}<span class="tag tag-warn">no</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout callout-warn">
+    <h4>The result that nearly became a false headline</h4>
+    <code>+ centrality</code> — hand-implemented PageRank and Brandes betweenness, the
+    algorithms PayPal names for ring detection — came back <strong>significantly better
+    under value weighting</strong> (+0.0125, uncorrected 95% CI [+0.0024, +0.0220]) while
+    being significantly <em>worse</em> on counts. That is exactly the dramatic “the graph
+    matters where the money is” story.
+    <p style="margin:.5rem 0 0"><strong>It does not survive correction for the eight
+    comparisons actually run</strong> — the interval becomes [−0.0022, +0.0257] and spans
+    zero. Reporting the one hit without mentioning the other seven would have been selective
+    reporting. The pre-registration committed in advance to treating any positive as
+    hypothesis-generating, which is what makes this recoverable rather than tempting.</p>
+    <p style="margin:.5rem 0 0">What <em>does</em> survive points the other way: both k-core
+    and centrality are significantly <strong>harmful</strong> on the count metric.</p>
+  </div>
+
+  <p class="sub">Weighted by raw transaction amount. VDR is a ratio, so units cancel and
+  <strong>no exchange-rate assumption enters this section at all</strong> — strictly fewer
+  premises than the rupee costing below. Amounts are anonymised, so this is evidence about
+  value structure in the dataset, never literal money saved.</p>
+  {% endif %}
+
   <!-- 3 ─────────────────────────────────────────────────────────── -->
   <h2>3. Operating points</h2>
   <p class="sub">A threshold-free metric still has to become a decision.</p>

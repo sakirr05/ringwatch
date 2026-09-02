@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+from sklearn.metrics import average_precision_score
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
@@ -60,6 +61,11 @@ from core.graph import (  # noqa: E402
     graph_summary,
 )
 from core.ring_evidence import ring_concentration_test  # noqa: E402
+from core.value_metrics import (  # noqa: E402
+    value_concentration,
+    value_detection_rate,
+    value_weighted_average_precision,
+)
 from core.split import DEFAULT_SPLIT_QUANTILE, split_summary, temporal_split  # noqa: E402
 
 OUTPUT = REPO_ROOT / "docs" / "results.json"
@@ -175,6 +181,54 @@ def main() -> int:
         [len(graph.adjacency[i]) for i in range(graph.n_uids)], dtype=np.int64
     )
     ring = ring_concentration_test(labels, entity_fraud, degrees > 0)
+
+    # ---- value-weighted view ---------------------------------------------
+    # Reuses the cached scores; adds the centrality variant when it exists.
+    print("Computing the value-weighted comparison ...", flush=True)
+    value_variants = list(VARIANTS)
+    if (CACHE_DIR / "scores_centrality.npy").exists():
+        scores["centrality"] = np.load(CACHE_DIR / "scores_centrality.npy")
+        value_variants = value_variants + [("centrality", "+ centrality")]
+
+    n_comparisons = (len(value_variants) - 1) * 2
+    value_rows = []
+    for key, label in value_variants:
+        row = {
+            "key": key,
+            "label": label,
+            "auc_pr": float(average_precision_score(y_true, scores[key])),
+            "value_weighted_ap": value_weighted_average_precision(
+                y_true, scores[key], amounts_usd
+            ),
+        }
+        if key != "baseline":
+            for weight_name, weight in (("count", None), ("value", amounts_usd)):
+                raw = bootstrap_auc_pr_delta(
+                    y_true, scores["baseline"], scores[key], name=label,
+                    sample_weight=weight,
+                )
+                corrected = bootstrap_auc_pr_delta(
+                    y_true, scores["baseline"], scores[key], name=label,
+                    sample_weight=weight, n_comparisons=n_comparisons,
+                )
+                row[f"{weight_name}_delta"] = raw.delta
+                row[f"{weight_name}_ci"] = [raw.ci_low, raw.ci_high]
+                row[f"{weight_name}_ci_corrected"] = [corrected.ci_low, corrected.ci_high]
+                row[f"{weight_name}_significant"] = raw.significant
+                row[f"{weight_name}_survives_correction"] = corrected.significant
+        value_rows.append(row)
+
+    # Reuse the full-graph features already computed above rather than rebuilding.
+    linked_mask = (
+        test[[UID_COL]]
+        .merge(features[[UID_COL, "g_is_linked"]], on=UID_COL, how="left")["g_is_linked"]
+        .fillna(0)
+        .to_numpy()
+        == 1
+    )
+    concentration = value_concentration(
+        y_true, amounts_usd, linked_mask, "graph-linked rows"
+    )
 
     # ---- calibration -----------------------------------------------------
     print("Computing calibration ...", flush=True)
@@ -293,6 +347,18 @@ def main() -> int:
             "usd_to_inr": USD_TO_INR,
             "gross_margin_rate": GROSS_MARGIN_RATE,
             "chargeback_fee_inr": CHARGEBACK_FEE_INR,
+        },
+        "value_weighted": {
+            "n_comparisons": n_comparisons,
+            "variants": value_rows,
+            "concentration": {
+                "count_share": concentration.count_share,
+                "value_share": concentration.value_share,
+                "enrichment": concentration.enrichment,
+                "mean_amount_in": concentration.mean_amount_in,
+                "mean_amount_out": concentration.mean_amount_out,
+                "n_fraud": concentration.n_fraud,
+            },
         },
         "calibration": calibration,
         "clusters": clusters,

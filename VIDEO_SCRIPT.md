@@ -145,7 +145,37 @@ Refresh the dashboard, section 6.
 
 > "The contrast is the actual result: **the graph transfers, the trained model doesn't.**"
 
-## 3:40–4:20 · Incremental k-core, and a prediction I got wrong
+## 3:40–4:20 · The objection I tested, and the headline I didn't publish
+
+Scroll to section 2b.
+
+> "Here's the strongest objection to everything I just showed you. AUC-PR is
+> count-uniform — it treats a fifty-rupee fraud and a fifty-thousand-rupee fraud the same.
+> PayPal's own engineers optimise for *dollar-weighted* fraud detection. So maybe my graph
+> layer only looks useless because my metric ignores money."
+
+> "I wrote down a prediction, then tested it. And the centrality variant — hand-implemented
+> PageRank and Brandes betweenness, the algorithms PayPal names for ring detection — came
+> back **significantly better** under value weighting. Plus 0.0125, interval clear of zero.
+> That's the reveal. That's the slide that makes this project look brilliant."
+
+Pause here.
+
+> "I ran four variants under two weightings. That's eight comparisons. At ninety-five
+> percent confidence each, the chance of at least one false positive is about thirty-four
+> percent. Corrected for the family, that interval spans zero."
+
+> "So it's not a finding. It's a hypothesis. And the only reason I'm telling you that
+> instead of showing you a lift is that I wrote down, before I measured, that a positive
+> here would be hypothesis-generating rather than confirmatory. Without that commitment I'd
+> have had every incentive to find the correction pedantic after seeing the number."
+
+> "What *does* survive correction points the other way: both k-core and centrality are
+> significantly worse on the count metric. And the mechanism explains it — graph-linked
+> fraud carries 3.57% of the value against 3.35% of the count. There's no hidden money in
+> the rings. The negative result survived its most serious challenge."
+
+## 4:20–4:50 · Incremental k-core, and a prediction I got wrong
 
 Terminal:
 
@@ -173,7 +203,7 @@ python scripts/benchmark_incremental.py
 > "Correctness is exact against the batch implementation as an oracle — asserted after every
 > single insertion, not just at the end."
 
-## 4:20–5:00 · Limitations, and close
+## 4:50–5:00 · Limitations, and close
 
 Scroll the README limitations section.
 

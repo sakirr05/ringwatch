@@ -270,6 +270,7 @@ def dashboard(request: Request) -> HTMLResponse:
             "clusters": results["clusters"],
             "dataset": results["dataset"],
             "assumptions": results["assumptions"],
+            "vw": results.get("value_weighted"),
             "events": events,
             "event_total": event_total,
             "webhook_configured": bool(webhook_secret()),

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generated_at": "2026-09-02T10:15:30+00:00",
-    "git_commit": "596b0d6",
+    "generated_at": "2026-09-02T12:36:42+00:00",
+    "git_commit": "4a76c32",
     "note": "Produced by scripts/export_results.py from cached model scores. The web app renders this file and computes nothing."
   },
   "dataset": {
@@ -132,6 +132,137 @@
     "usd_to_inr": 88.0,
     "gross_margin_rate": 0.12,
     "chargeback_fee_inr": 1200.0
+  },
+  "value_weighted": {
+    "n_comparisons": 8,
+    "variants": [
+      {
+        "key": "baseline",
+        "label": "tabular only",
+        "auc_pr": 0.518761301467355,
+        "value_weighted_ap": 0.4325992553258447
+      },
+      {
+        "key": "components",
+        "label": "+ components",
+        "auc_pr": 0.5176273165174987,
+        "value_weighted_ap": 0.43533133046603434,
+        "count_delta": -0.0010512183037483195,
+        "count_ci": [
+          -0.004220396882880911,
+          0.0023804990667764168
+        ],
+        "count_ci_corrected": [
+          -0.005559298104717776,
+          0.0031744922158843366
+        ],
+        "count_significant": false,
+        "count_survives_correction": false,
+        "value_delta": 0.0029382293797309156,
+        "value_ci": [
+          -0.005148891574980438,
+          0.012252149681519936
+        ],
+        "value_ci_corrected": [
+          -0.007493967496681928,
+          0.015920654776626925
+        ],
+        "value_significant": false,
+        "value_survives_correction": false
+      },
+      {
+        "key": "kcore",
+        "label": "+ k-core",
+        "auc_pr": 0.5123479931689635,
+        "value_weighted_ap": 0.43675571633234994,
+        "count_delta": -0.006429687644549726,
+        "count_ci": [
+          -0.010175229200343722,
+          -0.00305695910875513
+        ],
+        "count_ci_corrected": [
+          -0.010778347116417912,
+          -0.0014630916012007742
+        ],
+        "count_significant": true,
+        "count_survives_correction": true,
+        "value_delta": 0.003948230909767301,
+        "value_ci": [
+          -0.0038880442662157983,
+          0.012651990144306874
+        ],
+        "value_ci_corrected": [
+          -0.008422575541271808,
+          0.016062079144757248
+        ],
+        "value_significant": false,
+        "value_survives_correction": false
+      },
+      {
+        "key": "graph_full",
+        "label": "+ full graph",
+        "auc_pr": 0.5168323310519847,
+        "value_weighted_ap": 0.4369081229964184,
+        "count_delta": -0.0020258952158538606,
+        "count_ci": [
+          -0.005594394375814054,
+          0.001323772606302474
+        ],
+        "count_ci_corrected": [
+          -0.006437512758552652,
+          0.002100271377609482
+        ],
+        "count_significant": false,
+        "count_survives_correction": false,
+        "value_delta": 0.004238869550521074,
+        "value_ci": [
+          -0.0042774193928876185,
+          0.01308563795409022
+        ],
+        "value_ci_corrected": [
+          -0.007048076465664426,
+          0.015357648508763668
+        ],
+        "value_significant": false,
+        "value_survives_correction": false
+      },
+      {
+        "key": "centrality",
+        "label": "+ centrality",
+        "auc_pr": 0.5134014934920461,
+        "value_weighted_ap": 0.4450115233370805,
+        "count_delta": -0.005396292779089138,
+        "count_ci": [
+          -0.009091913235722207,
+          -0.0017020322387666792
+        ],
+        "count_ci_corrected": [
+          -0.010381529967858938,
+          -5.6830070803330616e-05
+        ],
+        "count_significant": true,
+        "count_survives_correction": true,
+        "value_delta": 0.01245643973565782,
+        "value_ci": [
+          0.002310158732590438,
+          0.02169456885416685
+        ],
+        "value_ci_corrected": [
+          -0.0013274642720291147,
+          0.025260062682736544
+        ],
+        "value_significant": true,
+        "value_survives_correction": false
+      }
+    ],
+    "concentration": {
+      "count_share": 0.03346456692913386,
+      "value_share": 0.03571584305670673,
+      "enrichment": 1.0672734278121774,
+      "mean_amount_in": 160.17881623436423,
+      "mean_amount_out": 149.73269263425814,
+      "n_fraud": 136
+    }
   },
   "calibration": [
     {
