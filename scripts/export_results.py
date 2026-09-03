@@ -46,8 +46,10 @@ from core.evaluate import (  # noqa: E402
     USD_TO_INR,
     GROSS_MARGIN_RATE,
     CHARGEBACK_FEE_INR,
+    amount_inr,
     bootstrap_auc_pr_delta,
     evaluate,
+    threshold_sweep,
 )
 from core.features import add_time_features  # noqa: E402
 from core.investigation import build_case_files  # noqa: E402
@@ -331,6 +333,44 @@ def main() -> int:
             }
         )
 
+    # ---- threshold curve for the dashboard slider ------------------------
+    print("Sweeping the threshold curve ...", flush=True)
+    amounts_inr = amount_inr(amounts_usd)
+    sweep_rows = [
+        # Rounded at export: the curve is a display artifact, and full float64 repr on
+        # every field would bloat a file the browser downloads. Rupee figures go to whole
+        # rupees because the dashboard never shows paise.
+        #
+        # The threshold itself is NOT rounded. Rounding it to 8 decimals moved the two
+        # published operating points ~5e-9 off their own curve -- invisible on screen and
+        # harmless to every derived figure, but it made "the marks reproduce the panel
+        # exactly" false in the one place a reviewer could check it. Costs ~1.5 KB raw.
+        {
+            "threshold": point.threshold,
+            "precision": round(point.precision, 6),
+            "recall": round(point.recall, 6),
+            "insult_rate": round(point.insult_rate, 8),
+            "true_positives": point.true_positives,
+            "false_positives": point.false_positives,
+            "true_negatives": point.true_negatives,
+            "false_negatives": point.false_negatives,
+            "fraud_caught_inr": round(point.fraud_caught_inr),
+            "fraud_missed_inr": round(point.fraud_missed_inr),
+            "insult_cost_inr": round(point.insult_cost_inr),
+            "total_cost_inr": round(point.total_cost_inr),
+        }
+        for point in threshold_sweep(
+            y_true,
+            scores["baseline"],
+            amounts_inr,
+            extra_thresholds=[
+                reports["baseline"].operating_point.threshold,
+                reports["baseline"].constrained_operating_point.threshold,
+            ],
+        )
+    ]
+    print(f"  {len(sweep_rows)} points on the curve")
+
     # ---- flagged clusters + narratives -----------------------------------
     print("Selecting flagged clusters and fetching narratives ...", flush=True)
     _, test_with_graph, _ = build_features_for_split(train, test)
@@ -490,6 +530,13 @@ def main() -> int:
                 reports["baseline"].constrained_operating_point
             ),
             "insult_cap": MAX_ACCEPTABLE_INSULT_RATE,
+            # The whole curve, so the dashboard's slider reads values instead of computing
+            # them. Same model as the two points above (baseline / tabular-only), same
+            # cost_at_threshold that produced them, and both are merged in as exact grid
+            # entries by threshold_sweep -- so a marked point cannot disagree with the
+            # table it sits under.
+            "sweep": sweep_rows,
+            "sweep_variant": "baseline",
         },
         "assumptions": {
             "usd_to_inr": USD_TO_INR,

@@ -25,6 +25,7 @@ they do not).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -390,6 +391,43 @@ def choose_threshold_under_insult_cap(
 
     assert strictest is not None
     return feasible if feasible is not None else strictest
+
+
+def threshold_sweep(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    amounts_inr: np.ndarray,
+    n_points: int = 150,
+    extra_thresholds: Iterable[float] = (),
+) -> list[ThresholdReport]:
+    """The full cost/precision/recall curve, evaluated once so nothing recomputes it later.
+
+    This exists so the dashboard's threshold slider has something to *read*. Every point is
+    produced here, by the same `cost_at_threshold` that produced both published operating
+    points — the web layer looks values up in a committed artifact and does no arithmetic of
+    its own. A slider that recomputed a confusion matrix in the browser would be a second,
+    unvalidated implementation of the costing model, which is exactly the kind of quiet
+    divergence this project's structure is meant to prevent.
+
+    Swept over score quantiles for the reason `choose_threshold_by_cost` already documents:
+    predicted probabilities on a 3.4% positive class bunch near zero, so a uniform 0-1 grid
+    would spend most of its points where there is no data. Equal steps in quantile are equal
+    steps in *number of transactions declined*, which is also the axis an operator actually
+    reasons about.
+
+    `extra_thresholds` is merged in so the published operating points land exactly on the
+    curve rather than near it — a slider whose marked point sits between two samples would
+    display figures that disagree with the table above it.
+    """
+    quantiles = np.linspace(0.85, 0.99995, n_points)
+    candidates = np.quantile(np.asarray(y_score, dtype=np.float64), quantiles)
+    candidates = np.concatenate([candidates, np.asarray(list(extra_thresholds), dtype=np.float64)])
+    candidates = np.unique(candidates)  # sorts ascending and de-duplicates
+
+    return [
+        cost_at_threshold(y_true, y_score, amounts_inr, float(threshold))
+        for threshold in candidates
+    ]
 
 
 def evaluate(

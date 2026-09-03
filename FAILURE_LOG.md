@@ -118,6 +118,28 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-04 22:30] — Rounding for file size made an exactness claim false by 5e-9
+
+- **Symptom:** The threshold explorer's curve is exported with rounded fields to keep
+  `results.json` small, and thresholds were rounded to 8 decimals. Everything looked right:
+  the page displays 4 decimals, both operating-point marks landed on the correct slider
+  positions, and every derived figure — precision, recall, tp/fp/fn, insult rate, rupee
+  cost — matched the published panels exactly. My own first verification, written with a
+  `< 1e-8` tolerance, passed.
+- **Diagnosis:** The test I then wrote for the repo used `< 1e-9`, and failed. The published
+  `cost_minimising` threshold is `0.04384046535165725`; the curve carried `0.04384047`. The
+  gap is ~4.6e-9 — numerically irrelevant, since no score falls inside it and the confusion
+  matrix is identical either way. But the page and the README both say the marks *reproduce
+  the panel figures exactly rather than approximately*, and the threshold field is the one
+  place a reviewer can check that claim directly. Rounding had quietly turned "exactly" into
+  "to eight decimal places," which is a different sentence.
+- **Fix:** Stopped rounding the threshold field. Every other field stays rounded; the extra
+  cost is ~1.5 KB raw and about 0.3 KB gzipped. The tolerance in the test stays at 1e-9 so
+  the claim cannot drift back.
+- **Worth noting:** the tolerance I picked while checking my own work by hand was looser
+  than the one I picked while writing a test for someone else to run, and only the second
+  caught it. That is an argument for writing the test first, which I did not do here.
+
 ## [2026-09-04 21:05] — The cold-start optimisation I was about to do would have been theatre
 
 - **Symptom:** The plan for this phase said to make `/health` "genuinely cheap" because it

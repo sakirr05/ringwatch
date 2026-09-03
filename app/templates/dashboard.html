@@ -150,6 +150,65 @@ figure img:not(.loaded) { background:
 }
 figcaption { font-size: .84rem; color: var(--muted); margin-top: .6rem; }
 
+/* ---- threshold explorer ----
+   Every value it displays was computed by core/ and read out of results.json. The slider
+   is an index into a precomputed array; the browser does no arithmetic beyond formatting.
+   The unshippable band is drawn from the data, not hard-coded: it is the span of the curve
+   whose insult rate exceeds the declared cap. */
+.slider-wrap { background: var(--panel); border: 1px solid var(--rule);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.1rem 1.2rem;
+  margin: 1rem 0; }
+.slider-track { position: relative; margin: .3rem 0 1.15rem; }
+.slider-band { position: absolute; top: 50%; transform: translateY(-50%); height: 7px;
+  border-radius: 4px; pointer-events: none; }
+.slider-band.unship { background: repeating-linear-gradient(135deg,
+  var(--warn-bg), var(--warn-bg) 5px, transparent 5px, transparent 10px);
+  border: 1px solid var(--warn); opacity: .85; }
+.slider-wrap input[type=range] { width: 100%; margin: 0; position: relative; z-index: 2;
+  background: transparent; -webkit-appearance: none; appearance: none; height: 22px; }
+.slider-wrap input[type=range]::-webkit-slider-runnable-track { height: 7px;
+  border-radius: 4px; background: var(--rule); }
+.slider-wrap input[type=range]::-moz-range-track { height: 7px; border-radius: 4px;
+  background: var(--rule); }
+.slider-wrap input[type=range]::-webkit-slider-thumb { -webkit-appearance: none;
+  appearance: none; width: 19px; height: 19px; margin-top: -6px; border-radius: 50%;
+  background: var(--accent-2); border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--accent-2); cursor: pointer; }
+.slider-wrap input[type=range]::-moz-range-thumb { width: 19px; height: 19px;
+  border-radius: 50%; background: var(--accent-2); border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--accent-2); cursor: pointer; }
+.slider-wrap input[type=range]:focus-visible { outline: 2px solid var(--accent);
+  outline-offset: 3px; }
+.slider-mark { position: absolute; top: 50%; width: 2px; height: 19px; z-index: 1;
+  transform: translate(-50%, -50%); background: var(--navy); pointer-events: none; }
+.slider-mark span { position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+  font-size: .68rem; letter-spacing: .04em; color: var(--muted); white-space: nowrap;
+  font-family: ui-monospace, monospace; }
+.slider-mark.a { background: var(--warn); }
+.slider-mark.a span { color: var(--warn); }
+.slider-mark.b { background: var(--det); }
+.slider-mark.b span { color: var(--det); }
+.slider-jump { font: inherit; font-size: .78rem; cursor: pointer; padding: .28rem .6rem;
+  border-radius: 6px; border: 1px solid var(--rule); background: var(--bg);
+  color: var(--ink); }
+.slider-jump:hover { background: var(--accent-bg); }
+.slider-jump.a { border-color: var(--warn); color: var(--warn); }
+.slider-jump.b { border-color: var(--det); color: var(--det); }
+.readout { display: grid; gap: .55rem; margin-top: .3rem;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.readout div { border: 1px solid var(--rule); border-radius: 8px; padding: .5rem .6rem;
+  background: var(--bg); }
+.readout dt { font-size: .68rem; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 .18rem; }
+.readout dd { margin: 0; font-family: ui-monospace, monospace; font-size: 1.02rem;
+  font-weight: 600; color: var(--navy); }
+.readout dd small { font-weight: 400; font-size: .72rem; color: var(--muted);
+  font-family: inherit; }
+.verdict { margin-top: .9rem; padding: .65rem .8rem; border-radius: 8px;
+  border-left: 3px solid var(--det); background: var(--det-bg); font-size: .9rem; }
+.verdict.bad { border-left-color: var(--warn); background: var(--warn-bg); }
+.verdict strong { letter-spacing: .03em; }
+
 .cluster { border: 1px solid var(--rule); background: var(--panel); margin: .7rem 0;
   border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .cluster > summary { cursor: pointer; padding: .78rem .95rem; font-size: .9rem;
@@ -313,6 +372,12 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
   .cluster .gist { color: #333; }
   .cluster .cbody, details > .cbody { display: block !important; padding: 0; }
   .cluster + .cluster { page-break-before: always; break-before: page; }
+
+  /* The threshold explorer is dropped from print entirely. A printed slider cannot be
+     dragged, and a frozen readout would show one arbitrary position as though it were a
+     chosen result. Panels [A] and [B] above already carry the two figures that matter, and
+     the whole curve is in results.json for anyone who wants it. */
+  #explorer, #explorer + p, h3 + .sub { display: none !important; }
 
   /* The gate prints as a bordered block with the buttons removed -- a printout cannot be
      clicked, and a printed "Approve" button would imply an approval that never happened.
@@ -586,6 +651,54 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
       </dl>
     </div>
   </div>
+
+  {% if ops.sweep %}
+  <h3 style="margin:1.6rem 0 .2rem">Explore the threshold</h3>
+  <p class="sub" style="margin:0 0 .5rem">
+    {{ ops.sweep | length }} precomputed points on the
+    <strong>{{ ops.sweep_variant }}</strong> model's cost curve ·
+    <span class="tag tag-det">computed by core/</span>
+  </p>
+
+  <div class="slider-wrap" id="explorer"
+       data-cap="{{ ops.insult_cap }}"
+       data-a="{{ "%.8f"|format(ops.cost_minimising.threshold) }}"
+       data-b="{{ "%.8f"|format(ops.insult_constrained.threshold) }}">
+    <div class="slider-track">
+      <div class="slider-band unship" id="band-unship"></div>
+      <input type="range" id="thr" min="0" max="{{ ops.sweep | length - 1 }}" step="1"
+             aria-label="Decision threshold"
+             aria-describedby="thr-verdict">
+      <div class="slider-mark a" id="mark-a"><span>[A]</span></div>
+      <div class="slider-mark b" id="mark-b"><span>[B]</span></div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin-bottom:.7rem">
+      <button class="slider-jump a" type="button" data-jump="a">Jump to [A] cost-minimising</button>
+      <button class="slider-jump b" type="button" data-jump="b">Jump to [B] insult-constrained</button>
+    </div>
+
+    <dl class="readout">
+      <div><dt>threshold</dt><dd id="r-thr">—</dd></div>
+      <div><dt>precision</dt><dd id="r-prec">—</dd></div>
+      <div><dt>recall</dt><dd id="r-rec">—</dd></div>
+      <div><dt>insult rate</dt><dd id="r-insult">—</dd></div>
+      <div><dt>fraud caught</dt><dd id="r-tp">—</dd></div>
+      <div><dt>fraud missed</dt><dd id="r-fn">—</dd></div>
+      <div><dt>customers declined</dt><dd id="r-fp">—</dd></div>
+      <div><dt>total expected cost</dt><dd id="r-cost">—</dd></div>
+    </dl>
+
+    <div class="verdict" id="thr-verdict" role="status">—</div>
+
+    <p class="sub" style="margin:.75rem 0 0">
+      Nothing here is computed in your browser. Each position reads one precomputed row from
+      <a href="/api/results">results.json</a>, produced by the same
+      <code>cost_at_threshold</code> that produced [A] and [B] above — which is why the two
+      marks reproduce the panel figures exactly rather than approximately.
+    </p>
+  </div>
+  {% endif %}
 
   <div class="callout callout-warn">
     <h4>Why [A] is unshippable despite being “optimal”</h4>
@@ -1013,6 +1126,13 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
 
 </div>
 
+{# The curve, embedded as inert data rather than as executable JS. A <script> block with a
+   non-JS type is never parsed as code, so `tojson` output cannot become a script-injection
+   vector, and the page still needs no network request to drive the slider. #}
+{% if ops.sweep %}
+<script type="application/json" id="sweep-data">{{ ops.sweep | tojson }}</script>
+{% endif %}
+
 <script>
 /* Bi-directional provenance highlighting between the SAR draft and the entity graph.
  *
@@ -1145,6 +1265,127 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
     node.addEventListener("focus", function () { on(true); });
     node.addEventListener("blur", function () { on(false); });
   });
+})();
+
+/* ---------------------------------------------------------------------------
+ * THRESHOLD EXPLORER
+ *
+ * Reads a precomputed curve and formats it. That is the whole job. There is deliberately
+ * no arithmetic here that could disagree with core/: precision, recall, insult rate and
+ * every rupee figure are looked up, not derived. The one computation is converting an
+ * index to a percentage for positioning a mark, which is layout, not a metric.
+ * ------------------------------------------------------------------------- */
+(function () {
+  var host = document.getElementById("explorer");
+  var blob = document.getElementById("sweep-data");
+  var input = document.getElementById("thr");
+  if (!host || !blob || !input) return;
+
+  var sweep;
+  try { sweep = JSON.parse(blob.textContent); } catch (e) { return; }
+  if (!sweep || !sweep.length) return;
+
+  var cap = parseFloat(host.getAttribute("data-cap"));
+  var out = {
+    thr: document.getElementById("r-thr"), prec: document.getElementById("r-prec"),
+    rec: document.getElementById("r-rec"), insult: document.getElementById("r-insult"),
+    tp: document.getElementById("r-tp"), fn: document.getElementById("r-fn"),
+    fp: document.getElementById("r-fp"), cost: document.getElementById("r-cost")
+  };
+  var verdict = document.getElementById("thr-verdict");
+
+  /* Indian digit grouping, matching the server-side `inr` filter so the same number is
+   * never formatted two different ways on one page. */
+  function inr(n) {
+    var s = String(Math.round(Math.abs(n))), tail = s.slice(-3), head = s.slice(0, -3),
+        groups = [];
+    while (head.length > 2) { groups.unshift(head.slice(-2)); head = head.slice(0, -2); }
+    if (head) groups.unshift(head);
+    groups.push(tail);
+    return (n < 0 ? "-" : "") + groups.join(",");
+  }
+
+  /* Nearest index to a threshold. Both published points were merged into the sweep as
+   * exact grid entries, so for [A] and [B] this is an exact hit, not an approximation. */
+  function indexOfThreshold(t) {
+    var best = 0, bestGap = Infinity;
+    for (var i = 0; i < sweep.length; i++) {
+      var gap = Math.abs(sweep[i].threshold - t);
+      if (gap < bestGap) { bestGap = gap; best = i; }
+    }
+    return best;
+  }
+
+  var idxA = indexOfThreshold(parseFloat(host.getAttribute("data-a")));
+  var idxB = indexOfThreshold(parseFloat(host.getAttribute("data-b")));
+
+  function pct(i) { return (100 * i / (sweep.length - 1)) + "%"; }
+
+  function render(i) {
+    var p = sweep[i];
+    if (!p) return;
+    out.thr.textContent = p.threshold.toFixed(4);
+    out.prec.textContent = p.precision.toFixed(4);
+    out.rec.textContent = p.recall.toFixed(4);
+    out.insult.innerHTML = (100 * p.insult_rate).toFixed(3) +
+      "%<small> of legit traffic</small>";
+    out.tp.textContent = p.true_positives.toLocaleString("en-IN");
+    out.fn.textContent = p.false_negatives.toLocaleString("en-IN");
+    out.fp.textContent = p.false_positives.toLocaleString("en-IN");
+    out.cost.innerHTML = "₹" + inr(p.total_cost_inr);
+
+    var unshippable = p.insult_rate > cap;
+    verdict.className = "verdict" + (unshippable ? " bad" : "");
+    if (unshippable) {
+      verdict.innerHTML = "<strong>OPERATIONALLY UNSHIPPABLE.</strong> This declines " +
+        (100 * p.insult_rate).toFixed(2) + "% of legitimate traffic — " +
+        p.false_positives.toLocaleString("en-IN") + " customers — against a declared " +
+        "ceiling of " + (100 * cap).toFixed(0) + "%. The cost model that makes this look " +
+        "optimal does not price customer churn, and an unpriced cost reads to an " +
+        "optimiser as a free one.";
+    } else {
+      verdict.innerHTML = "<strong>Within the declared insult ceiling</strong> of " +
+        (100 * cap).toFixed(0) + "% — " + p.false_positives.toLocaleString("en-IN") +
+        " legitimate customers declined to catch " +
+        p.true_positives.toLocaleString("en-IN") + " fraudulent transactions, missing " +
+        p.false_negatives.toLocaleString("en-IN") + ".";
+    }
+  }
+
+  // Shade the span of the curve whose insult rate exceeds the cap. Derived from the data
+  // rather than hard-coded, so it stays correct if the cap or the curve ever changes.
+  var lastUnshippable = -1;
+  for (var i = 0; i < sweep.length; i++) {
+    if (sweep[i].insult_rate > cap) lastUnshippable = i;
+  }
+  var band = document.getElementById("band-unship");
+  if (band && lastUnshippable >= 0) {
+    band.style.left = "0%";
+    band.style.width = pct(lastUnshippable);
+    band.title = "insult rate above the " + (100 * cap).toFixed(0) + "% ceiling";
+  } else if (band) {
+    band.style.display = "none";
+  }
+
+  var markA = document.getElementById("mark-a");
+  var markB = document.getElementById("mark-b");
+  if (markA) markA.style.left = pct(idxA);
+  if (markB) markB.style.left = pct(idxB);
+
+  input.addEventListener("input", function () { render(parseInt(input.value, 10)); });
+
+  Array.prototype.forEach.call(host.querySelectorAll("[data-jump]"), function (button) {
+    button.addEventListener("click", function () {
+      input.value = button.getAttribute("data-jump") === "a" ? idxA : idxB;
+      render(parseInt(input.value, 10));
+      input.focus();
+    });
+  });
+
+  // Open on [B] -- the point a payments team could actually deploy, not the one that
+  // merely optimises the incomplete cost model.
+  input.value = idxB;
+  render(idxB);
 })();
 
 /* ---------------------------------------------------------------------------

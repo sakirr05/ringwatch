@@ -916,6 +916,36 @@ would be inventing data. An unpriced cost reads to an optimiser as a free one.
 So both are reported. The gap between them *is* the honest statement of what the missing
 cost is doing, and every insult figure here is an **underestimate**.
 
+#### The whole curve, not just the two points
+
+The dashboard has a **threshold explorer** — drag through 152 precomputed points and watch
+precision, recall, insult rate and expected cost move together. Two things about how it is
+built matter more than the interaction:
+
+- **The browser computes nothing.** Every point comes from `core.evaluate.threshold_sweep`,
+  which calls the same `cost_at_threshold` that produced [A] and [B], and lands in
+  `docs/results.json` at export time. The slider is an index into that array. A slider that
+  recomputed a confusion matrix in JavaScript would be a second, unvalidated implementation
+  of the cost model living inside a page whose entire claim is that it has none —
+  `tests/test_explorer.py` asserts the script contains no such arithmetic.
+- **Both published points land on the curve exactly**, because they are merged in as grid
+  entries rather than approximated by the nearest sample. This was worth getting right:
+  rounding thresholds to 8 decimals for file size put them ~5e-9 off their own curve —
+  invisible on screen, harmless to every derived figure, and it would have made
+  "reproduces the panel exactly" false in the one place a reviewer could check. The test
+  caught it; the threshold field is now unrounded.
+
+The curve is swept over score quantiles rather than a uniform 0–1 grid, for the reason
+`choose_threshold_by_cost` already documents: probabilities on a 3.44% positive class bunch
+near zero, so a uniform grid spends most of its points where there is no data. Equal steps
+in quantile are equal steps in *transactions declined*, which is the axis an operator
+reasons about anyway.
+
+**126 of the 152 points sit above the 1% insult ceiling.** The dashboard shades that span
+and labels any threshold dragged into it `OPERATIONALLY UNSHIPPABLE` — including [A]. Most
+of the curve is not deployable, and the explorer says so rather than letting the reader
+discover a "better" cost number that no merchant would accept.
+
 ## Calibration: are the probabilities trustworthy?
 
 AUC-PR answers "does the model rank fraud above legitimate traffic?" — and it is invariant
