@@ -59,6 +59,7 @@ from core.centrality import (
     pagerank,
 )
 from core.clusters import build_cluster_evidence
+from core.costs import cost_weights, weight_summary
 from core.model import train_model
 from core.ring_evidence import ring_concentration_test
 from core.split import split_summary, temporal_split
@@ -66,7 +67,8 @@ from core.split import split_summary, temporal_split
 from ai.narrate import narrate_all
 
 STAGES = (
-    "data", "baseline", "graph", "ablation", "value", "calibration", "narrate", "all",
+    "data", "baseline", "graph", "ablation", "value", "cost", "calibration",
+    "narrate", "all",
 )
 
 
@@ -376,6 +378,88 @@ def stage_ablation(df: pd.DataFrame | None = None) -> None:
     )
 
 
+def stage_cost(df: pd.DataFrame | None = None) -> None:
+    """Does making the model cost-aware during TRAINING actually help?
+
+    Cost asymmetry currently enters only when a threshold is chosen. This trains a variant
+    that carries it in the objective, weighting each row by what getting it wrong would
+    cost -- using the same named constants core/evaluate.py already uses, so training and
+    thresholding cannot disagree about what a mistake is worth.
+
+    The variant uses the SAME feature set as the baseline. Only the weighting differs, so
+    any measured change is attributable to cost-sensitivity rather than to features.
+
+    Two axes are reported, and the second is the one that matters: AUC-PR, and TOTAL
+    EXPECTED COST at the insult-constrained operating point. Cost is what is being
+    optimised, so a variant can lose on AUC-PR and still win on cost -- that would be the
+    interesting outcome, and reporting only AUC-PR would hide it.
+    """
+    banner("STAGE: cost-sensitive training")
+    df = df if df is not None else load_merged()
+    train, test = temporal_split(df)
+    train, test = add_time_features(train), add_time_features(test)
+    cols = feature_columns(train)
+
+    y_true = test[TARGET].to_numpy().astype(int)
+    amounts = test["TransactionAmt"].to_numpy().astype(float)
+
+    weights = cost_weights(train[TARGET], train["TransactionAmt"])
+    print("cost weights applied during training:")
+    for key, value in weight_summary(weights, train[TARGET]).items():
+        print(f"  {key:22s} {value:.4f}")
+    print("\n  A fraud row is weighted by (amount + chargeback fee); a legitimate row by")
+    print("  (amount x gross margin). Same constants the threshold logic uses.\n")
+
+    baseline = _fit_and_score(train, test, cols, "tabular only", "baseline")
+
+    cache = CACHE_DIR / "scores_costsensitive.npy"
+    if cache.exists() and (CACHE_DIR / "model_costsensitive.txt").exists():
+        print("  [+ cost-sensitive] using cached scores")
+        cost_scores = np.load(cache)
+    else:
+        print(f"  [+ cost-sensitive] training on {len(cols)} features with cost weights ...",
+              flush=True)
+        started = time.time()
+        model = train_model(train, cols, sample_weight=weights)
+        print(f"  [+ cost-sensitive] {time.time() - started:.0f}s, "
+              f"best_iter={model.best_iteration}")
+        cost_scores = model.predict(test)
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        model.booster.save_model(str(CACHE_DIR / "model_costsensitive.txt"),
+                                 num_iteration=model.best_iteration)
+        np.save(cache, cost_scores)
+
+    scores = {"tabular only": baseline, "+ cost-sensitive": cost_scores}
+
+    banner("AXIS 1: ranking quality (AUC-PR)")
+    print(f"{'variant':<18} {'AUC-PR':>9} {'delta':>9}  {'95% CI':<22} verdict")
+    for name, s in scores.items():
+        ap = average_precision_score(y_true, s)
+        if name == "tabular only":
+            print(f"{name:<18} {ap:>9.4f} {'—':>9}  {'baseline':<22}")
+            continue
+        d = bootstrap_auc_pr_delta(y_true, baseline, s, name=name)
+        print(f"{name:<18} {ap:>9.4f} {d.delta:>+9.4f}  "
+              f"[{d.ci_low:+.4f}, {d.ci_high:+.4f}]   {d.verdict()}")
+
+    banner("AXIS 2: total expected cost at the <=1% insult cap")
+    print("This is the axis cost-sensitive training is actually optimising for.\n")
+    print(f"{'variant':<18} {'threshold':>10} {'insult':>8} {'recall':>8} {'total cost':>16}")
+    costs = {}
+    for name, s in scores.items():
+        cap = choose_threshold_under_insult_cap(y_true, s, amount_inr(amounts))
+        costs[name] = cap.total_cost_inr
+        print(f"{name:<18} {cap.threshold:>10.4f} {100*cap.insult_rate:>7.3f}% "
+              f"{cap.recall:>8.4f} Rs {cap.total_cost_inr:>13,.0f}")
+
+    delta = costs["+ cost-sensitive"] - costs["tabular only"]
+    pct = 100 * delta / costs["tabular only"]
+    print(f"\n  cost difference: Rs {delta:+,.0f} ({pct:+.2f}%)  "
+          f"-> cost-sensitive training is {'CHEAPER' if delta < 0 else 'MORE EXPENSIVE'}")
+    print("\n  Note: this is a single point estimate on one test set, not a CI. The AUC-PR")
+    print("  comparison above carries the interval; treat the cost figure as indicative.")
+
+
 def stage_value(df: pd.DataFrame | None = None) -> None:
     """Re-run the ablation weighted by transaction value, plus a centrality variant.
 
@@ -676,6 +760,8 @@ def main() -> int:
         stage_ablation()
     elif args.stage == "value":
         stage_value()
+    elif args.stage == "cost":
+        stage_cost()
     elif args.stage == "calibration":
         stage_calibration()
     elif args.stage == "narrate":
@@ -686,6 +772,7 @@ def main() -> int:
         stage_graph(df)
         stage_ablation(df)
         stage_value(df)
+        stage_cost(df)
         stage_calibration(df)
         stage_narrate(df)
     return 0

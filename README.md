@@ -401,6 +401,53 @@ trained model does not.** Reporting that is more useful than quietly displaying 
 that means nothing — and stating it is the same discipline as reporting the negative
 ablation above.
 
+## Cost-sensitive training: it made things worse, and the reason is measurable
+
+Cost asymmetry previously entered only at threshold selection. This makes the *model* carry
+it, weighting each training row by what getting it wrong would cost — a fraud row by
+`amount + chargeback fee`, a legitimate row by `amount × gross margin`, using the **same
+named constants** the threshold logic uses so the two cannot disagree about what a mistake
+is worth. Same feature set as the baseline, so only the weighting differs.
+
+Run it with `python run.py --stage cost`.
+
+| variant | AUC-PR | Δ | 95% CI | verdict |
+|---|---|---|---|---|
+| tabular only | 0.5188 | — | — | baseline |
+| + cost-sensitive | 0.4782 | **−0.0408** | [−0.0472, −0.0341] | **significantly worse** |
+
+And on the axis it is actually optimising — total expected cost at the ≤1% insult cap:
+
+| variant | threshold | insult rate | recall | total expected cost |
+|---|---|---|---|---|
+| tabular only | 0.2167 | 0.854% | 0.4178 | ₹4,07,47,202 |
+| + cost-sensitive | 0.6800 | 0.974% | 0.3841 | ₹4,47,04,444 |
+
+**+9.71% more expensive.** It loses on the metric it was built to win.
+
+### Why — and this is measurable, not a guess
+
+Weighting does not add information; it redistributes attention. Skewed weights redistribute
+it into a *smaller* effective dataset, and the Kish effective sample size measures exactly
+how much:
+
+> **55,864 effective rows out of 472,432 — 11.8% of nominal.**
+
+Cost weighting discards roughly seven-eighths of the effective training set. A legitimate
+row's weight is its amount × 0.12, while a fraud row's is its amount + a fixed ₹1,200 fee,
+which produces a **172,000× spread**; the heaviest 1% of rows end up holding 20% of all the
+weight. Early stopping corroborates it — the model halts at 161 boosting rounds against the
+baseline's 633, exactly what starved, noisier gradients look like.
+
+So the cost signal was real but cheap, and the information destroyed to encode it was
+expensive. A much weaker model cannot be rescued by knowing what things cost.
+
+**What this does not license:** "cost-sensitive learning doesn't work." What was measured is
+*one weighting scheme on one dataset* costing more information than its signal was worth.
+A scheme that capped the weight ratio, or applied cost only through a custom objective
+rather than row weights, might well behave differently — and `effective_sample_size()` in
+`core/costs.py` is the diagnostic to check first.
+
 ## Does the graph layer matter where the money is?
 
 AUC-PR is **count-uniform** — it treats a small fraud and a large one identically. PayPal's

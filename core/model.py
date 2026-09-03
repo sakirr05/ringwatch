@@ -100,14 +100,30 @@ def train_model(
     feature_names: list[str],
     target: str = "isFraud",
     params: dict | None = None,
+    sample_weight: pd.Series | np.ndarray | None = None,
 ) -> TrainedModel:
-    """Fit LightGBM with early stopping on a temporally held-out slice of train."""
+    """Fit LightGBM with early stopping on a temporally held-out slice of train.
+
+    `sample_weight` is optional and defaults to None, which reproduces the uniform-weight
+    behaviour every previously published score was produced with. When supplied it must be
+    indexed like `train`, so it can be split alongside the frame -- weights that stayed in
+    the original row order while the data was split would silently pair each row with some
+    other row's cost, and the model would still train, just on nonsense.
+    """
     fit_df, val_df = inner_temporal_validation_split(train)
 
     merged_params = {**BASE_PARAMS, **(params or {})}
 
-    fit_set = lgb.Dataset(fit_df[feature_names], label=fit_df[target])
-    val_set = lgb.Dataset(val_df[feature_names], label=val_df[target], reference=fit_set)
+    fit_weight = val_weight = None
+    if sample_weight is not None:
+        weights = pd.Series(np.asarray(sample_weight, dtype=np.float64), index=train.index)
+        fit_weight = weights.loc[fit_df.index].to_numpy()
+        val_weight = weights.loc[val_df.index].to_numpy()
+
+    fit_set = lgb.Dataset(fit_df[feature_names], label=fit_df[target], weight=fit_weight)
+    val_set = lgb.Dataset(
+        val_df[feature_names], label=val_df[target], weight=val_weight, reference=fit_set
+    )
 
     evals: dict = {}
     booster = lgb.train(

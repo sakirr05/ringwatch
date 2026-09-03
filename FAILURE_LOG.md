@@ -118,6 +118,34 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-04 10:30] — Cost-sensitive training backfired, and the diagnostic said why
+
+- **Symptom:** Weighting each training row by its misclassification cost made the model
+  **significantly worse on both axes**. AUC-PR fell 0.5188 -> 0.4782 (delta −0.0408, 95% CI
+  [−0.0472, −0.0341]) — an effect roughly six times larger than any graph variant. And it
+  lost on the metric it exists to optimise: total expected cost at the insult cap rose from
+  ₹4,07,47,202 to ₹4,47,04,444, **+9.71%**.
+- **Diagnosis:** My first instinct was that the cost signal must be too weak to help. The
+  actual cause is the opposite kind of problem, and it is measurable. Weighting does not
+  add information, it redistributes attention — and these weights redistribute it into a
+  far smaller effective dataset. Kish effective sample size: **55,864 of 472,432 rows,
+  11.8% of nominal.** A legitimate row is weighted by amount × 0.12 while a fraud row is
+  amount + a flat ₹1,200, producing a **172,000× spread** in which the heaviest 1% of rows
+  hold 20% of the total weight. Early stopping corroborates it independently — the model
+  halts at 161 boosting rounds against the baseline's 633, which is what starved gradients
+  look like. The cost signal was real but cheap; the information destroyed to encode it was
+  expensive.
+- **Fix:** None to the code — the implementation is correct, and the tests confirm the
+  weights genuinely reach LightGBM and genuinely change the model. What changed is the
+  claim. `effective_sample_size()` is now a first-class function in `core/costs.py` with
+  tests, so the mechanism is reproducible rather than a number I once printed in a shell.
+
+  Worth being careful about the scope of the conclusion: this measured **one weighting
+  scheme on one dataset**, not cost-sensitive learning in general. Capping the weight
+  ratio, or expressing cost through a custom objective instead of row weights, could
+  behave differently. Saying "cost-sensitive learning doesn't work" would be exactly the
+  overreach this project keeps having to catch itself on.
+
 ## [2026-09-02 17:25] — Betweenness centrality hung for 12 minutes and had to be killed
 
 - **Symptom:** `run.py --stage value` sat at 117% CPU (single-threaded) producing nothing
