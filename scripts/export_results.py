@@ -36,6 +36,7 @@ from sklearn.metrics import average_precision_score
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from ai.disposition import draft_all  # noqa: E402
 from ai.narrate import narrate_all  # noqa: E402
 from core.calibration import calibration_report  # noqa: E402
 from core.clusters import build_cluster_evidence  # noqa: E402
@@ -49,6 +50,7 @@ from core.evaluate import (  # noqa: E402
     evaluate,
 )
 from core.features import add_time_features  # noqa: E402
+from core.investigation import build_case_files  # noqa: E402
 from core.graph import (  # noqa: E402
     MAX_GROUP_SIZE,
     UID_COL,
@@ -343,13 +345,20 @@ def main() -> int:
     )
     narratives = narrate_all(evidence_items)
 
+    # The orchestrator runs on case files core/ assembled. It reads them and writes
+    # prose; it computes nothing, and every figure it quotes is checked against the
+    # case file by the same provenance guard the narratives go through.
+    print("Drafting dispositions (advisory; a human approves each) ...", flush=True)
+    case_files = build_case_files(evidence_items)
+    dispositions = draft_all(case_files)
+
     # Component labels for the FULL entity graph, so each cluster's real subgraph can be
     # extracted for display. Same graph object the ring statistics came from.
     full_labels = connected_components(graph.adjacency)
 
     clusters = []
-    for evidence, narrative, component in zip(
-        evidence_items, narratives, selected_components
+    for evidence, narrative, case, disposition, component in zip(
+        evidence_items, narratives, case_files, dispositions, selected_components
     ):
         clusters.append(
             {
@@ -405,6 +414,33 @@ def main() -> int:
                             "shared_attributes": list(evidence.shared_attributes),
                         },
                     ),
+                },
+                # The orchestrator's draft, plus the case file it saw. Both are exported
+                # so the audit trail can record what was recommended AND what it was
+                # recommended from -- a decision log without the inputs cannot be audited.
+                "case": {
+                    "case_id": case.case_id,
+                    "rank": case.rank,
+                    "total_flagged_clusters": case.total_flagged_clusters,
+                    "risk_percentile": case.risk_percentile,
+                    "entities_in_other_clusters": case.entities_in_other_clusters,
+                    "transactions_per_entity": case.transactions_per_entity,
+                    "flagged_share": case.flagged_share,
+                    "population_mean_risk": case.population_mean_risk,
+                    "corroborating": list(case.corroborating),
+                    "contradicting": list(case.contradicting),
+                },
+                "disposition": {
+                    "case_id": disposition.case_id,
+                    "status": disposition.status,
+                    "recommendation": disposition.recommendation,
+                    "confidence": disposition.confidence,
+                    "rationale": disposition.rationale,
+                    "key_factors": list(disposition.key_factors),
+                    "rejection_reason": disposition.rejection_reason,
+                    # Hard-coded true on the type. Carried into the artifact so the page
+                    # cannot render an ungated recommendation even by mistake.
+                    "requires_human_approval": disposition.requires_human_approval,
                 },
             }
         )

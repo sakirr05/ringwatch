@@ -59,6 +59,7 @@ from core.centrality import (
     pagerank,
 )
 from core.clusters import build_cluster_evidence
+from core.investigation import build_case_files
 from core.costs import cost_weights, weight_summary
 from core.drift import (
     drift_report,
@@ -70,11 +71,12 @@ from core.model import train_model
 from core.ring_evidence import label_homophily_test, ring_concentration_test
 from core.split import split_summary, temporal_split
 
+from ai.disposition import draft_all
 from ai.narrate import narrate_all
 
 STAGES = (
     "data", "baseline", "graph", "ablation", "value", "cost", "drift",
-    "elliptic", "calibration", "narrate", "all",
+    "elliptic", "calibration", "narrate", "investigate", "all",
 )
 
 
@@ -940,6 +942,70 @@ def stage_narrate(df: pd.DataFrame | None = None) -> None:
     )
 
 
+def stage_investigate(df: pd.DataFrame | None = None) -> None:
+    """The bounded orchestrator, end to end, printed so the containment is inspectable.
+
+    Everything printed under "case file" was computed by `core/investigation.py`. Everything
+    under "drafted" was written by the model, and every figure in it was checked against the
+    case file before it got here. Nothing below is applied.
+    """
+    banner("STAGE: investigate (orchestrator drafts; a human approves)")
+    df = df if df is not None else load_merged()
+    if UID_COL not in df.columns:
+        df = df.copy()
+        df[UID_COL] = build_uid(df)
+
+    train, test = temporal_split(df)
+    _, test, _ = build_features_for_split(train, test)
+    test = add_time_features(test)
+
+    score_path = CACHE_DIR / "scores_graph_full.npy"
+    if not score_path.exists():
+        print("No graph-augmented scores cached. Run: python run.py --stage ablation")
+        return
+    scores = np.load(score_path)
+
+    report = evaluate(
+        "graph-augmented", test[TARGET].values, scores, test["TransactionAmt"].values
+    )
+    evidence_items = build_cluster_evidence(
+        test, scores, report.constrained_operating_point.threshold
+    )
+    if not evidence_items:
+        print("no clusters met the criteria")
+        return
+
+    cases = build_case_files(evidence_items)
+    drafts = draft_all(cases)
+
+    tally: dict[str, int] = {}
+    unavailable = 0
+    for case, draft in zip(cases, drafts):
+        print(f"--- {case.case_id} (rank {case.rank} of {case.total_flagged_clusters}) ---")
+        print(f"  case file : {len(case.corroborating)} findings for, "
+              f"{len(case.contradicting)} against  [computed by core/]")
+        for item in case.contradicting:
+            print(f"      against: {item}")
+        if draft.status != "OK":
+            unavailable += 1
+            print(f"  drafted   : DISPOSITION_UNAVAILABLE -- {draft.rejection_reason}")
+        else:
+            tally[draft.recommendation] = tally.get(draft.recommendation, 0) + 1
+            print(f"  drafted   : {draft.recommendation.upper()} "
+                  f"(self-reported confidence {draft.confidence})")
+            print(f"  rationale : {draft.rationale}")
+        print("  applied   : NO -- requires human approval, executes nothing")
+        print()
+
+    validated = len(drafts) - unavailable
+    print(f"{validated}/{len(drafts)} dispositions validated; "
+          f"{unavailable} fell back to DISPOSITION_UNAVAILABLE.")
+    if tally:
+        print("recommendations: " + ", ".join(f"{k}={v}" for k, v in sorted(tally.items())))
+    print("\nNone of the above was applied. Approval is recorded in the dashboard's audit "
+          "trail, which blocks no card and calls no external service.")
+
+
 def _load_env() -> None:
     """Load .env if present, so documented credentials actually reach the provider.
 
@@ -983,6 +1049,8 @@ def main() -> int:
         stage_calibration()
     elif args.stage == "narrate":
         stage_narrate()
+    elif args.stage == "investigate":
+        stage_investigate()
     else:
         df = stage_data()
         stage_baseline(df)
@@ -993,6 +1061,7 @@ def main() -> int:
         stage_drift(df)
         stage_calibration(df)
         stage_narrate(df)
+        stage_investigate(df)
     return 0
 
 

@@ -145,6 +145,46 @@ figcaption { font-size: .84rem; color: var(--muted); margin-top: .6rem; }
   gap: .18rem .9rem; font-size: .84rem; }
 .prov dt { color: var(--muted); }
 .prov dd { margin: 0; font-family: ui-monospace, monospace; }
+
+/* ---- human approval gate ----
+   Deliberately the loudest element on the page. A recommendation that looks decided is
+   the failure mode this whole layer is built to avoid, so the gate is drawn as a barrier
+   the eye cannot skip: heavy border, hatched ground, and the word DRAFT before the verb. */
+.gate { border: 2px solid var(--warn); border-radius: var(--radius); margin: .9rem 0 0;
+  background: repeating-linear-gradient(135deg, var(--warn-bg), var(--warn-bg) 9px,
+    transparent 9px, transparent 18px); }
+.gate-head { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem;
+  padding: .6rem .8rem; border-bottom: 2px solid var(--warn); background: var(--warn-bg); }
+.gate-head strong { font-size: .82rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--warn); }
+.gate-body { padding: .75rem .8rem; background: var(--panel); }
+.gate-rec { font-family: ui-monospace, monospace; font-weight: 650; font-size: 1.02rem;
+  color: var(--navy); letter-spacing: .02em; }
+.gate-rec .verb { text-transform: uppercase; }
+.gate ul { margin: .5rem 0 0; padding-left: 1.1rem; }
+.gate li { margin: .18rem 0; font-size: .9rem; }
+.gate-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+  padding: .7rem .8rem; border-top: 1px solid var(--rule); background: var(--panel); }
+.gate-btn { font: inherit; font-size: .86rem; font-weight: 600; cursor: pointer;
+  padding: .42rem .95rem; border-radius: 6px; border: 1px solid var(--rule);
+  background: var(--panel); color: var(--ink); }
+.gate-btn:hover { background: var(--accent-bg); }
+.gate-btn.approve { border-color: var(--det); color: var(--det); }
+.gate-btn.reject  { border-color: var(--warn); color: var(--warn); }
+.gate-btn:disabled { opacity: .5; cursor: not-allowed; }
+.gate-who { font: inherit; font-size: .84rem; padding: .38rem .5rem; border-radius: 6px;
+  border: 1px solid var(--rule); background: var(--bg); color: var(--ink); min-width: 9rem; }
+.gate-state { font-size: .84rem; color: var(--muted); }
+.gate-state.done { color: var(--det); font-weight: 600; }
+.gate-state.err  { color: var(--warn); font-weight: 600; }
+.gate-note { padding: 0 .8rem .7rem; font-size: .82rem; color: var(--muted);
+  background: var(--panel); border-radius: 0 0 var(--radius) var(--radius); }
+.gate-split { display: grid; gap: .75rem; margin-top: .6rem; }
+@media (min-width: 720px) { .gate-split { grid-template-columns: 1fr 1fr; } }
+.gate-split h6 { margin: 0 0 .2rem; font-size: .74rem; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--muted); }
+.gate-split .for h6 { color: var(--warn); }
+.gate-split .against h6 { color: var(--det); }
 .overflow { overflow-x: auto; }
 
 /* ---- cluster subgraph + prose provenance ---- */
@@ -251,6 +291,19 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
   .cluster .gist { color: #333; }
   .cluster .cbody, details > .cbody { display: block !important; padding: 0; }
   .cluster + .cluster { page-break-before: always; break-before: page; }
+
+  /* The gate prints as a bordered block with the buttons removed -- a printout cannot be
+     clicked, and a printed "Approve" button would imply an approval that never happened.
+     The recorded state and the executes-nothing note both stay. */
+  .gate { border: 1pt solid #000; background: #fff; page-break-inside: avoid;
+    break-inside: avoid; }
+  .gate-head { border-bottom: .5pt solid #000; background: #fff; }
+  .gate-head strong { color: #000; }
+  .gate-actions .gate-btn, .gate-actions .gate-who,
+  .gate-actions label { display: none !important; }
+  .gate-actions { border-top: .5pt solid #999; padding: 2mm 3mm; }
+  .gate-state, .gate-note { color: #333; }
+  .gate-split { grid-template-columns: 1fr 1fr; }
 
   .sar { grid-template-columns: 46mm 1fr; gap: 6mm; }
   .sar-graph { position: static; }
@@ -585,6 +638,25 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
   Any figure in its output that was not in the evidence it was handed is rejected by a
   provenance guard.</p>
 
+  <div class="callout">
+    <h4>What the orchestrator is, and what bounds it</h4>
+    Each cluster below carries a <strong>drafted disposition</strong> — confirm, dismiss or
+    escalate, with reasoning. It is the one agentic component in RingWatch, and its
+    autonomy is bounded structurally rather than by policy. It cannot compute or alter a
+    score: <code>ai/</code>'s entire transitive import closure is the standard library plus
+    an HTTP client, so no scoring code is reachable from it. It cannot select a cluster —
+    that happened in <code>core/clusters.py</code> before it ran. It cannot execute
+    anything: there is no action surface in the contract for it to reach, and the approve
+    button writes an audit row and nothing else. And it cannot state a number it was not
+    given.
+    <p style="margin:.6rem 0 0">The case file it reads deliberately contains findings that
+    argue <em>against</em> concern as well as for. A tool that only ever assembles
+    incriminating detail manufactures the confidence a reviewer then rubber-stamps, which
+    is worse than no tool. Of the {{ clusters | length }} drafts below, most recommend
+    escalation rather than confirmation — that is the honest answer when a cluster is
+    genuinely ambiguous, not a failure to decide.</p>
+  </div>
+
   {% for c in clusters %}
   <details class="cluster">
     <summary>
@@ -722,6 +794,88 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
               {% endif %}
             </div>
           </section>
+
+          {% if c.disposition %}
+          {% set d = c.disposition %}
+          {% set prior = decisions.get(d.case_id) %}
+          <section class="sar-sec">
+            <h5>Recommended disposition — awaiting human approval</h5>
+            <div class="gate" data-case="{{ d.case_id }}">
+              <div class="gate-head">
+                <strong>Draft · not applied</strong>
+                <span class="tag tag-ai">drafted by the LLM</span>
+                <span class="sub" style="margin:0">
+                  <code>{{ d.case_id }}</code>
+                  {% if c.case %}· ranked {{ c.case.rank }} of
+                  {{ c.case.total_flagged_clusters }} by risk{% endif %}
+                </span>
+              </div>
+
+              <div class="gate-body">
+                {% if d.status == 'OK' %}
+                <p class="gate-rec" style="margin:0">
+                  Recommends: <span class="verb">{{ d.recommendation }}</span>
+                  <span class="sub" style="font-family:inherit;font-weight:400">
+                    · self-reported confidence <code>{{ d.confidence }}</code>
+                  </span>
+                </p>
+                <p style="margin:.5rem 0 0">{{ d.rationale }}</p>
+                {% if d.key_factors %}
+                <ul>{% for f in d.key_factors %}<li>{{ f }}</li>{% endfor %}</ul>
+                {% endif %}
+                {% else %}
+                <p class="gate-rec" style="margin:0"><code>DISPOSITION_UNAVAILABLE</code></p>
+                <p class="sub" style="margin:.3rem 0 0">{{ d.rejection_reason }}</p>
+                {% endif %}
+
+                {% if c.case and (c.case.corroborating or c.case.contradicting) %}
+                <div class="gate-split">
+                  <div class="for">
+                    <h6>Computed findings supporting concern</h6>
+                    {% if c.case.corroborating %}
+                    <ul>{% for f in c.case.corroborating %}<li>{{ f }}</li>{% endfor %}</ul>
+                    {% else %}<p class="sub" style="margin:0">none</p>{% endif %}
+                  </div>
+                  <div class="against">
+                    <h6>Computed findings arguing against</h6>
+                    {% if c.case.contradicting %}
+                    <ul>{% for f in c.case.contradicting %}<li>{{ f }}</li>{% endfor %}</ul>
+                    {% else %}<p class="sub" style="margin:0">none</p>{% endif %}
+                  </div>
+                </div>
+                <p class="sub" style="margin:.55rem 0 0">Both lists were derived by
+                  <code>core/investigation.py</code> from figures the engine computed. They
+                  are facts handed to the drafter, not the drafter's opinions — including
+                  the ones that argue against acting.</p>
+                {% endif %}
+              </div>
+
+              <div class="gate-actions">
+                <label class="sub" for="who-{{ d.case_id }}" style="margin:0">Reviewer</label>
+                <input class="gate-who" id="who-{{ d.case_id }}" type="text"
+                       placeholder="your name" maxlength="120"
+                       value="{{ prior.reviewer if prior else '' }}">
+                <button class="gate-btn approve" data-decision="approved" type="button">
+                  Approve recommendation</button>
+                <button class="gate-btn reject" data-decision="rejected" type="button">
+                  Reject</button>
+                <span class="gate-state{% if prior %} done{% endif %}" role="status">
+                  {%- if prior -%}
+                    {{ prior.decision }} by {{ prior.reviewer }} at {{ prior.decided_at }}
+                  {%- else -%}
+                    no decision recorded
+                  {%- endif -%}
+                </span>
+              </div>
+
+              <p class="gate-note">Approving records an audit row — the draft, the evidence
+                it saw, and who decided. It executes nothing: no card is blocked, no customer
+                is contacted, no Razorpay API is called. RingWatch is detection-only, and the
+                approval gate is where that stops being a promise and becomes the
+                architecture.</p>
+            </div>
+          </section>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -964,6 +1118,70 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
     node.addEventListener("mouseleave", function () { on(false); });
     node.addEventListener("focus", function () { on(true); });
     node.addEventListener("blur", function () { on(false); });
+  });
+})();
+
+/* ---------------------------------------------------------------------------
+ * HUMAN APPROVAL GATE
+ *
+ * The one place on this page that writes anything. It POSTs a decision and renders what
+ * came back -- it does not decide, apply, or compute. Note what is NOT sent: the draft and
+ * the evidence are read server-side from the committed artifact, so nothing here can
+ * change the record of what the model said or what it was shown.
+ * ------------------------------------------------------------------------- */
+(function () {
+  var gates = document.querySelectorAll(".gate");
+  if (!gates.length) return;
+
+  Array.prototype.forEach.call(gates, function (gate) {
+    var caseId = gate.getAttribute("data-case");
+    var state = gate.querySelector(".gate-state");
+    var who = gate.querySelector(".gate-who");
+    var buttons = gate.querySelectorAll(".gate-btn");
+    if (!caseId || !state || !buttons.length) return;
+
+    function setBusy(busy) {
+      Array.prototype.forEach.call(buttons, function (b) { b.disabled = busy; });
+    }
+
+    Array.prototype.forEach.call(buttons, function (button) {
+      button.addEventListener("click", function () {
+        var decision = button.getAttribute("data-decision");
+        if (!decision) return;
+
+        setBusy(true);
+        state.className = "gate-state";
+        state.textContent = "recording ...";
+
+        fetch("/api/dispositions/" + encodeURIComponent(caseId) + "/decision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            decision: decision,
+            reviewer: who && who.value ? who.value : ""
+          })
+        }).then(function (response) {
+          return response.json().then(function (body) {
+            return { ok: response.ok, body: body };
+          });
+        }).then(function (result) {
+          setBusy(false);
+          if (!result.ok || !result.body || !result.body.recorded) {
+            state.className = "gate-state err";
+            state.textContent = (result.body && result.body.error) || "could not record";
+            return;
+          }
+          state.className = "gate-state done";
+          // "recorded" rather than "applied", because that is what happened.
+          state.textContent = result.body.decision + " by " + result.body.reviewer +
+            " at " + result.body.decided_at + " — recorded only, nothing executed";
+        }).catch(function () {
+          setBusy(false);
+          state.className = "gate-state err";
+          state.textContent = "could not reach the server";
+        });
+      });
+    });
   });
 })();
 </script>

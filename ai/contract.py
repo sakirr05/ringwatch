@@ -158,3 +158,116 @@ def _normalise_number(token: str) -> str:
 def extract_numbers(text: str) -> set[str]:
     """Every numeric token in a piece of prose, normalised for comparison."""
     return {_normalise_number(m.group()) for m in _NUMBER_PATTERN.finditer(text)}
+
+
+# ---------------------------------------------------------------------------
+# INVESTIGATION ORCHESTRATOR CONTRACT
+#
+# Same one-way shape as ClusterEvidence above: `core/investigation.py` assembles a frozen
+# CaseFile and hands it over; `ai/disposition.py` reads it and writes prose. The AI side
+# still imports nothing from `core/`, which `tests/test_ai_boundary.py` enforces by walking
+# the import graph.
+#
+# The orchestrator's autonomy is deliberately bounded. It cannot compute or alter a score,
+# decide a match, or execute anything at all -- there is no action surface in this contract
+# for it to reach. Its output is a RECOMMENDATION that a human either approves or rejects,
+# and the approval gate is the feature rather than an obstacle to it.
+# ---------------------------------------------------------------------------
+
+DISPOSITIONS: tuple[str, ...] = ("confirm", "dismiss", "escalate")
+
+
+@dataclass(frozen=True)
+class CaseFile:
+    """Everything deterministically known about one flagged cluster, frozen for review.
+
+    Richer than `ClusterEvidence` on purpose: an investigation needs comparative context a
+    narrative does not. Rank, percentile and cross-cluster overlap all come from `core/`,
+    and `corroborating` / `contradicting` are factual statements the deterministic engine
+    derived — not the model's opinions, which is what makes them safe to reason from.
+    """
+
+    case_id: str
+    cluster: ClusterEvidence
+    rank: int
+    total_flagged_clusters: int
+    risk_percentile: float
+    entities_in_other_clusters: int
+    transactions_per_entity: float
+    flagged_share: float
+    population_mean_risk: float
+    corroborating: tuple[str, ...] = ()
+    contradicting: tuple[str, ...] = ()
+
+    def allowed_numbers(self) -> set[str]:
+        """Every figure the drafter may quote. Inherits the cluster's own allowances."""
+        allowed = set(self.cluster.allowed_numbers())
+        for value in (self.rank, self.total_flagged_clusters, self.entities_in_other_clusters):
+            allowed.add(_normalise_number(str(int(value))))
+        for value in (
+            self.risk_percentile,
+            self.transactions_per_entity,
+            self.flagged_share,
+            self.population_mean_risk,
+        ):
+            for rendering in (f"{value:.4f}", f"{value:.2f}", f"{value:.1f}", f"{value:.0f}"):
+                allowed.add(_normalise_number(rendering))
+        # Figures quoted inside the deterministic findings are quotable too.
+        for statement in (*self.corroborating, *self.contradicting):
+            allowed |= extract_numbers(statement)
+        return allowed
+
+    def as_prompt_facts(self) -> str:
+        """The case file, rendered for the drafter. Nothing is recomputed here."""
+        lines = [
+            f"case_id: {self.case_id}",
+            self.cluster.as_prompt_facts(),
+            f"rank_by_risk: {self.rank} of {self.total_flagged_clusters}",
+            f"risk_percentile: {self.risk_percentile:.2f}",
+            f"entities_also_in_other_flagged_clusters: {self.entities_in_other_clusters}",
+            f"transactions_per_entity: {self.transactions_per_entity:.2f}",
+            f"share_of_transactions_flagged: {self.flagged_share:.2f}",
+            f"population_mean_risk_score: {self.population_mean_risk:.4f}",
+        ]
+        if self.corroborating:
+            lines.append("findings_supporting_concern:")
+            lines += [f"  - {item}" for item in self.corroborating]
+        if self.contradicting:
+            lines.append("findings_arguing_against_concern:")
+            lines += [f"  - {item}" for item in self.contradicting]
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class Disposition:
+    """A recommended disposition. Advisory only — nothing acts on it without a human."""
+
+    case_id: str
+    recommendation: str          # confirm | dismiss | escalate
+    confidence: str              # high | medium | low
+    rationale: str
+    key_factors: tuple[str, ...] = ()
+    status: str = "OK"
+    rejection_reason: str | None = None
+
+    @property
+    def requires_human_approval(self) -> bool:
+        """Always true. Present so the invariant is expressed in the type, not just the UI."""
+        return True
+
+
+def disposition_unavailable(case_id: str, reason: str) -> Disposition:
+    """The honest fallback, matching `unavailable()` for narratives.
+
+    An analyst reading DISPOSITION_UNAVAILABLE knows there is nothing here. One reading a
+    plausible invented recommendation does not, and might act on it.
+    """
+    return Disposition(
+        case_id=case_id,
+        recommendation="escalate",
+        confidence="low",
+        rationale="DISPOSITION_UNAVAILABLE",
+        key_factors=(),
+        status="DISPOSITION_UNAVAILABLE",
+        rejection_reason=reason,
+    )

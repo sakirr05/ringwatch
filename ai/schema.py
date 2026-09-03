@@ -17,9 +17,12 @@ import json
 
 from ai.contract import (
     CONFIDENCE_LEVELS,
+    DISPOSITIONS,
     PROBABLE_CAUSES,
+    CaseFile,
     ClusterEvidence,
     ClusterNarrative,
+    Disposition,
     extract_numbers,
 )
 
@@ -123,3 +126,92 @@ def _reject_invented_numbers(
             "response contains number(s) absent from the evidence: "
             f"{', '.join(invented)}"
         )
+
+
+# ---------------------------------------------------------------------------
+# DISPOSITION VALIDATION
+#
+# Same discipline as the narrative validator above, applied to the orchestrator's output.
+# The number-provenance guard matters more here, not less: an analyst reading a
+# recommendation is deciding whether to act, and an invented figure inside a confident
+# rationale is exactly the input that gets rubber-stamped.
+# ---------------------------------------------------------------------------
+
+DISPOSITION_FIELDS = ("recommendation", "confidence", "rationale", "key_factors")
+
+MAX_RATIONALE_CHARS = 1500
+MAX_FACTOR_CHARS = 160
+MAX_FACTORS = 6
+
+
+def validate_disposition(raw: str, case: CaseFile) -> Disposition:
+    """Parse and validate one drafted disposition. Raises ValidationError on any problem."""
+    text = _strip_code_fence(raw)
+
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValidationError(f"response is not valid JSON: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValidationError(f"expected a JSON object, got {type(payload).__name__}")
+
+    missing = [f for f in DISPOSITION_FIELDS if f not in payload]
+    if missing:
+        raise ValidationError(f"missing required field(s): {', '.join(missing)}")
+
+    extra = set(payload) - set(DISPOSITION_FIELDS)
+    if extra:
+        raise ValidationError(f"unexpected field(s): {', '.join(sorted(extra))}")
+
+    if payload["recommendation"] not in DISPOSITIONS:
+        raise ValidationError(
+            f"recommendation '{payload['recommendation']}' is not one of "
+            f"{', '.join(DISPOSITIONS)}"
+        )
+
+    if payload["confidence"] not in CONFIDENCE_LEVELS:
+        raise ValidationError(
+            f"confidence '{payload['confidence']}' is not one of "
+            f"{', '.join(CONFIDENCE_LEVELS)}"
+        )
+
+    rationale = payload["rationale"]
+    if not isinstance(rationale, str) or not rationale.strip():
+        raise ValidationError("rationale must be a non-empty string")
+    rationale = rationale.strip()
+    if len(rationale) > MAX_RATIONALE_CHARS:
+        raise ValidationError(
+            f"rationale is {len(rationale)} chars, limit {MAX_RATIONALE_CHARS}"
+        )
+
+    factors = payload["key_factors"]
+    if not isinstance(factors, list) or not factors:
+        raise ValidationError("key_factors must be a non-empty list")
+    if len(factors) > MAX_FACTORS:
+        raise ValidationError(f"key_factors has {len(factors)} items, limit {MAX_FACTORS}")
+    for factor in factors:
+        if not isinstance(factor, str) or not factor.strip():
+            raise ValidationError("every key_factor must be a non-empty string")
+        if len(factor) > MAX_FACTOR_CHARS:
+            raise ValidationError(f"a key_factor exceeds {MAX_FACTOR_CHARS} chars")
+
+    # The provenance guard, over the rationale AND every factor.
+    allowed = case.allowed_numbers()
+    used = extract_numbers(rationale)
+    for factor in factors:
+        used |= extract_numbers(factor)
+    invented = sorted(used - allowed)
+    if invented:
+        raise ValidationError(
+            "response contains number(s) absent from the case file: "
+            f"{', '.join(invented)}"
+        )
+
+    return Disposition(
+        case_id=case.case_id,
+        recommendation=payload["recommendation"],
+        confidence=payload["confidence"],
+        rationale=rationale,
+        key_factors=tuple(f.strip() for f in factors),
+    )

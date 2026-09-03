@@ -235,6 +235,114 @@ def api_results() -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=503)
 
 
+# ---------------------------------------------------------------------------
+# HUMAN APPROVAL GATE
+#
+# The orchestrator drafts; a person decides. These two routes are the entire decision
+# surface, and neither of them acts on anything: approving a disposition writes an audit
+# row and nothing else. No card is blocked, no customer is contacted, no external call is
+# made. That is not a limitation of the demo -- it is the design. A recommender that can
+# also execute is a decider, and this one is deliberately not.
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/dispositions/{case_id}/decision")
+async def decide_disposition(case_id: str, request: Request) -> JSONResponse:
+    """Record a human approve/reject on a drafted disposition."""
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - malformed body is a client error, not a crash
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
+
+    decision = body.get("decision")
+    if decision not in store.DECISIONS:
+        return JSONResponse(
+            {"error": f"decision must be one of {', '.join(store.DECISIONS)}"},
+            status_code=400,
+        )
+
+    # The draft and the evidence are read from the committed artifact, never from the
+    # request. A client cannot rewrite what the model was recorded as having said, or
+    # what it was recorded as having seen.
+    try:
+        results = load_results()
+    except ResultsUnavailable as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
+
+    cluster = next(
+        (
+            item
+            for item in results.get("clusters", [])
+            if (item.get("disposition") or {}).get("case_id") == case_id
+        ),
+        None,
+    )
+    if cluster is None:
+        return JSONResponse({"error": f"unknown case {case_id}"}, status_code=404)
+
+    note = body.get("note")
+    if note is not None and not isinstance(note, str):
+        return JSONResponse({"error": "note must be a string"}, status_code=400)
+
+    try:
+        entry = store.record_decision(
+            case_id=case_id,
+            decision=decision,
+            reviewer=str(body.get("reviewer") or "unattributed")[:120],
+            drafted=cluster["disposition"],
+            evidence_seen=cluster["evidence"],
+            note=note[:1000] if note else None,
+        )
+    except store.StorageError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
+
+    return JSONResponse(
+        {
+            "recorded": True,
+            "id": entry.id,
+            "case_id": entry.case_id,
+            "decision": entry.decision,
+            "decided_at": entry.decided_at,
+            "reviewer": entry.reviewer,
+            "note": entry.note,
+            # Said explicitly in the response so no client can mistake this for an action.
+            "applied": False,
+            "effect": "audit record only; nothing was executed",
+        }
+    )
+
+
+@app.get("/api/audit")
+def api_audit(case_id: str | None = None, limit: int = 50) -> JSONResponse:
+    """The orchestrator audit trail: what was drafted, what was seen, who decided."""
+    try:
+        entries = store.audit_trail(case_id=case_id, limit=max(1, min(limit, 200)))
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"error": str(exc)}, status_code=503)
+
+    return JSONResponse(
+        {
+            "count": len(entries),
+            "entries": [
+                {
+                    "id": entry.id,
+                    "case_id": entry.case_id,
+                    "decided_at": entry.decided_at,
+                    "decision": entry.decision,
+                    "reviewer": entry.reviewer,
+                    "note": entry.note,
+                    "drafted": entry.drafted,
+                    "evidence_seen": entry.evidence_seen,
+                }
+                for entry in entries
+            ],
+        }
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request) -> HTMLResponse:
     try:
@@ -256,6 +364,19 @@ def dashboard(request: Request) -> HTMLResponse:
     except Exception:  # noqa: BLE001 - the feed must never break the results page
         events, event_total = [], 0
 
+    try:
+        decisions = {
+            case_id: {
+                "decision": entry.decision,
+                "reviewer": entry.reviewer,
+                "decided_at": entry.decided_at,
+                "note": entry.note,
+            }
+            for case_id, entry in store.latest_decisions().items()
+        }
+    except Exception:  # noqa: BLE001 - same rule: the gate must not break the page
+        decisions = {}
+
     return TEMPLATES.TemplateResponse(
         request,
         "dashboard.html",
@@ -273,6 +394,7 @@ def dashboard(request: Request) -> HTMLResponse:
             "vw": results.get("value_weighted"),
             "events": events,
             "event_total": event_total,
+            "decisions": decisions,
             "webhook_configured": bool(webhook_secret()),
         },
     )

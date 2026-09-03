@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generated_at": "2026-09-02T18:44:35+00:00",
-    "git_commit": "90f0f8d",
+    "generated_at": "2026-09-03T20:43:35+00:00",
+    "git_commit": "d869e03",
     "note": "Produced by scripts/export_results.py from cached model scores. The web app renders this file and computes nothing."
   },
   "dataset": {
@@ -736,6 +736,40 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-000",
+        "rank": 1,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 91.66666666666666,
+        "entities_in_other_clusters": 2,
+        "transactions_per_entity": 1.0,
+        "flagged_share": 0.3333333333333333,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences",
+          "2 of its entities also appear in other flagged clusters"
+        ],
+        "contradicting": [
+          "no single attribute is shared by every entity; the link is an indirect chain",
+          "activity spans 32 days, longer than a typical card-testing burst and consistent with ordinary shared usage",
+          "only 1 of 3 transactions were flagged; most of the cluster's activity scored normally"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-000",
+        "status": "OK",
+        "recommendation": "escalate",
+        "confidence": "medium",
+        "rationale": "I recommend escalating this cluster for further manual review due to conflicting risk indicators. On the elevated risk side, the cluster contains a max risk score of 0.9963, a k-core number of 2 indicating mutually reinforcing links, and 2 entities that also appear in other flagged clusters. Conversely, arguing against immediate confirmation, the entities are connected only through an indirect attribute chain spanning 32 days, only 1 of 3 transactions was flagged by the model, and the cluster's mean risk score of 0.3325 sits below the population mean risk score of 0.4535. Because the high individual transaction severity contrasts with predominantly low-risk cluster activity, a deeper human review is warranted.",
+        "key_factors": [
+          "Presence of 2 entities in other flagged clusters",
+          "Maximum risk score of 0.9963 alongside k-core number of 2",
+          "Indirect attribute chain with activity spanning 32 days",
+          "Only 1 of 3 transactions flagged with mean risk score below population mean"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -909,6 +943,40 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-001",
+        "rank": 2,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 83.33333333333334,
+        "entities_in_other_clusters": 0,
+        "transactions_per_entity": 1.0,
+        "flagged_share": 1.0,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "all 2 entities share 2 identifying attributes (card1, P_emaildomain)",
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences",
+          "2 of 2 transactions were independently flagged by the model"
+        ],
+        "contradicting": [
+          "activity spans 13 days, longer than a typical card-testing burst and consistent with ordinary shared usage",
+          "a single card across several entities is also the ordinary signature of one household or a shared business account"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-001",
+        "status": "OK",
+        "recommendation": "escalate",
+        "confidence": "medium",
+        "rationale": "The cluster displays significant indicators of concern, as 2 of 2 transactions were flagged by the model, achieving a max risk score of 0.9908 and a mean risk score of 0.8228 well above the population mean risk score of 0.4535. Furthermore, all 2 entities share 2 identifying attributes with a k-core number of 2 indicating mutually reinforcing links. On the other hand, benign explanation remains credible because the activity spans 13 days, which exceeds a typical card-testing window, and utilizing 1 distinct card across entities aligns with normal household or shared business account behavior. Given these conflicting signals between automated risk scoring and potential ordinary shared usage, manual review is recommended to resolve the ambiguity.",
+        "key_factors": [
+          "High model risk scores relative to population mean",
+          "Mutually reinforcing links with k-core number 2",
+          "Extended 13 day activity span suggesting regular usage",
+          "Single shared card consistent with household behavior"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -1091,6 +1159,41 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-002",
+        "rank": 3,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 75.0,
+        "entities_in_other_clusters": 1,
+        "transactions_per_entity": 1.0,
+        "flagged_share": 0.5,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "all 2 entities share card1",
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences",
+          "activity is compressed into 3 days, consistent with a burst",
+          "1 of 2 transactions were independently flagged by the model",
+          "1 of its entities also appear in other flagged clusters"
+        ],
+        "contradicting": [
+          "a single card across several entities is also the ordinary signature of one household or a shared business account"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-002",
+        "status": "OK",
+        "recommendation": "escalate",
+        "confidence": "medium",
+        "rationale": "While the single shared card1 across entities could reflect benign shared infrastructure such as a household or business account, significant risk indicators warrant closer review. Specifically, 1 of its entities appears in other flagged clusters, activity is compressed into 3 days, and 1 of 2 transactions was independently flagged by the model with a max risk score of 0.9882. Additionally, a k-core number of 2 indicates mutually reinforcing links rather than coincidence. Given this tension between possible household sharing and cross-cluster risk exposure, manual escalation is recommended.",
+        "key_factors": [
+          "Overlap of 1 entity with other flagged clusters",
+          "Activity compressed into 3 days",
+          "Max risk score of 0.9882",
+          "Potential household or shared business account signature"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -1406,6 +1509,38 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-003",
+        "rank": 4,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 66.66666666666666,
+        "entities_in_other_clusters": 2,
+        "transactions_per_entity": 1.0,
+        "flagged_share": 1.0,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "all 2 entities share 2 identifying attributes (addr1, P_emaildomain)",
+          "activity is compressed into 0 days, consistent with a burst",
+          "2 of 2 transactions were independently flagged by the model",
+          "2 of its entities also appear in other flagged clusters"
+        ],
+        "contradicting": []
+      },
+      "disposition": {
+        "case_id": "CASE-003",
+        "status": "OK",
+        "recommendation": "confirm",
+        "confidence": "high",
+        "rationale": "This cluster presents significant fraud indicators, notably a mean_risk_score of 0.9260 well above the population_mean_risk_score of 0.4535, with 2 of 2 transactions flagged by the model (a share_of_transactions_flagged of 1.00) across an activity_span_days of 0. Additionally, all 2 entities appear in other flagged clusters and share 2 identifying attributes (addr1, P_emaildomain). Weighing against these concerns are structural indicators showing low local graph complexity, specifically a k_core_number of 1 and a max_entity_degree of 1 within a connected_component_size of 11, alongside 2 distinct_cards. However, the high model risk scores and repeated involvement across other flagged clusters clearly outweigh the sparse graph structure.",
+        "key_factors": [
+          "High mean_risk_score of 0.9260 compared to population average",
+          "Both entities present in other flagged clusters",
+          "Activity compressed into 0 days",
+          "1.00 share of transactions flagged by model"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -1592,6 +1727,40 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-004",
+        "rank": 5,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 58.333333333333336,
+        "entities_in_other_clusters": 2,
+        "transactions_per_entity": 1.0,
+        "flagged_share": 0.5,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences",
+          "1 of 2 transactions were independently flagged by the model",
+          "2 of its entities also appear in other flagged clusters"
+        ],
+        "contradicting": [
+          "no single attribute is shared by every entity; the link is an indirect chain",
+          "activity spans 33 days, longer than a typical card-testing burst and consistent with ordinary shared usage"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-004",
+        "status": "OK",
+        "recommendation": "escalate",
+        "confidence": "medium",
+        "rationale": "This cluster presents conflicting signals that make escalation appropriate for manual review. Supporting concern, 2 entities also appear in other flagged clusters, 1 of 2 transactions was independently flagged by the model, the max risk score reaches 0.9502, and a k-core number of 2 indicates mutually reinforcing links. Conversely, arguing against concern, no single attribute is directly shared across every entity as the link is an indirect attribute chain, and activity spans 33 days, which is consistent with ordinary shared usage rather than a rapid fraud burst. Because the presence of entities in multiple flagged clusters directly conflicts with the benign timing and indirect connections, human evaluation is recommended to weigh these opposing factors.",
+        "key_factors": [
+          "Entities also present in 2 other flagged clusters",
+          "Model flagged 1 of 2 transactions with max risk score 0.9502",
+          "Indirect attribute chain rather than direct shared attributes",
+          "Activity spans 33 days"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -1726,6 +1895,38 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-005",
+        "rank": 6,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 50.0,
+        "entities_in_other_clusters": 0,
+        "transactions_per_entity": 1.0,
+        "flagged_share": 0.5,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "all 2 entities share addr1",
+          "1 of 2 transactions were independently flagged by the model"
+        ],
+        "contradicting": [
+          "activity spans 25 days, longer than a typical card-testing burst and consistent with ordinary shared usage"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-005",
+        "status": "OK",
+        "recommendation": "escalate",
+        "confidence": "medium",
+        "rationale": "This cluster presents conflicting evidence that warrants deeper human inspection. Supporting concern, 1 of 2 transactions were independently flagged by the model, driving a max risk score of 0.9378, and all 2 entities share addr1. Conversely, arguing against concern, the activity spans 25 days, which is longer than a typical card-testing burst and consistent with ordinary shared usage, yielding a mean risk score of 0.4706 and a risk percentile of 50.00 (ranked 6 of 12). Because a single high-risk transaction is balanced against an extended activity duration across distinct cards and email domains, escalation is recommended to resolve the ambiguity.",
+        "key_factors": [
+          "all 2 entities share addr1",
+          "1 of 2 transactions were independently flagged by the model",
+          "activity spans 25 days, consistent with ordinary shared usage",
+          "max risk score of 0.9378"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -1928,6 +2129,40 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-006",
+        "rank": 7,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 41.66666666666667,
+        "entities_in_other_clusters": 2,
+        "transactions_per_entity": 2.0,
+        "flagged_share": 0.25,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "all 2 entities share 2 identifying attributes (addr1, P_emaildomain)",
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences",
+          "2 of its entities also appear in other flagged clusters"
+        ],
+        "contradicting": [
+          "activity spans 16 days, longer than a typical card-testing burst and consistent with ordinary shared usage",
+          "only 1 of 4 transactions were flagged; most of the cluster's activity scored normally"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-006",
+        "status": "OK",
+        "recommendation": "escalate",
+        "confidence": "medium",
+        "rationale": "We recommend escalating this case for manual review due to notable conflicting signals between structural network risk and individual transaction behavior. Supporting concern, all 2 entities share 2 identifying attributes (addr1, P_emaildomain) with a k-core number of 2 indicating mutually reinforcing links, both 2 entities appear in other flagged clusters, and the maximum risk score reaches 0.9024. However, arguing against immediate confirmation of fraud, the activity spans 16 days\u2014consistent with ordinary shared usage rather than a rapid attack\u2014and only 1 of 4 transactions was flagged. This results in a mean risk score of 0.2373, which remains below the population mean risk score of 0.4535. Because cross-cluster overlap introduces genuine ambiguity against a backdrop of predominantly normal activity, a human analyst should review the context surrounding these shared entities.",
+        "key_factors": [
+          "Appearance of 2 entities in other flagged clusters",
+          "High maximum risk score of 0.9024 despite mean risk score of 0.2373",
+          "Only 1 of 4 transactions flagged",
+          "Activity span of 16 days consistent with ordinary usage"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -2250,6 +2485,40 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-007",
+        "rank": 8,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 33.33333333333333,
+        "entities_in_other_clusters": 2,
+        "transactions_per_entity": 1.0,
+        "flagged_share": 0.3333333333333333,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences",
+          "2 of its entities also appear in other flagged clusters"
+        ],
+        "contradicting": [
+          "no single attribute is shared by every entity; the link is an indirect chain",
+          "activity spans 14 days, longer than a typical card-testing burst and consistent with ordinary shared usage",
+          "only 1 of 3 transactions were flagged; most of the cluster's activity scored normally"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-007",
+        "status": "OK",
+        "recommendation": "escalate",
+        "confidence": "medium",
+        "rationale": "We recommend escalating this case for further review due to ambiguous signals between entity relationships and transaction activity. Supporting concern, 2 of its entities also appear in other flagged clusters, the k-core number of 2 indicates mutually reinforcing links, and the max risk score reaches 0.7851. However, arguing against concern, no single attribute is shared by every entity in this indirect attribute chain, activity spans 14 days rather than a rapid burst, only 1 of 3 transactions was flagged (a 0.33 share of transactions flagged), and the mean risk score of 0.2706 remains below the population mean risk score of 0.4535. Given that entity involvement in other flagged clusters contrasts with low overall risk scores in this cluster, human review is recommended.",
+        "key_factors": [
+          "Cross-cluster presence of 2 entities",
+          "k-core number of 2",
+          "Mean risk score of 0.2706 below population mean of 0.4535",
+          "Only 1 of 3 transactions flagged over 14 days"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -2469,6 +2738,40 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-008",
+        "rank": 9,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 25.0,
+        "entities_in_other_clusters": 0,
+        "transactions_per_entity": 4.0,
+        "flagged_share": 0.5,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "all 3 entities share 3 identifying attributes (card1, addr1, P_emaildomain)",
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences",
+          "6 of 12 transactions were independently flagged by the model"
+        ],
+        "contradicting": [
+          "activity spans 26 days, longer than a typical card-testing burst and consistent with ordinary shared usage",
+          "a single card across several entities is also the ordinary signature of one household or a shared business account"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-008",
+        "status": "OK",
+        "recommendation": "escalate",
+        "confidence": "medium",
+        "rationale": "It is recommended to escalate this cluster for further review because the indicators present a balanced mix of potential concern and legitimate usage. Supporting concern, all 3 entities share 3 identifying attributes (card1, addr1, P_emaildomain) with a k-core number of 2 indicating mutually reinforcing connections, and 6 of 12 transactions were independently flagged by the model with a max risk score of 0.7464. On the other hand, the activity span of 26 days is consistent with normal shared usage rather than a rapid fraud burst, and utilizing 1 distinct card is a common pattern for a single household or shared business account. Furthermore, the mean risk score of 0.3318 remains below the population mean risk score of 0.4535, placing this cluster at a risk percentile of 25.00 and rank by risk of 9 of 12. Given that half of the transactions triggered automated model flags despite the lower overall cluster risk scores and legitimate household signature, manual analyst inspection is advised to resolve the ambiguity.",
+        "key_factors": [
+          "6 of 12 transactions flagged by model",
+          "26 day activity span suggesting legitimate shared usage",
+          "All 3 entities share card1, addr1, and P_emaildomain",
+          "Mean risk score of 0.3318 below population mean"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -2774,6 +3077,39 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-009",
+        "rank": 10,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 16.666666666666664,
+        "entities_in_other_clusters": 2,
+        "transactions_per_entity": 1.5,
+        "flagged_share": 1.0,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "all 2 entities share 2 identifying attributes (addr1, P_emaildomain)",
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences",
+          "activity is compressed into 3 days, consistent with a burst",
+          "3 of 3 transactions were independently flagged by the model",
+          "2 of its entities also appear in other flagged clusters"
+        ],
+        "contradicting": []
+      },
+      "disposition": {
+        "case_id": "CASE-009",
+        "status": "OK",
+        "recommendation": "escalate",
+        "confidence": "medium",
+        "rationale": "While all 3 of 3 transactions were flagged by the model with a mean risk score of 0.6279 exceeding the population mean risk score of 0.4535, and 2 entities also appear in other flagged clusters during a burst of 3 days, there are mitigating factors to consider. Specifically, the cluster ranks 10 of 12 by risk with a risk percentile of 16.67, representing lower relative risk among flagged clusters, and the shared infrastructure consists of only 1 distinct address and 1 distinct email domain across 2 distinct cards, which could reflect legitimate household activity. Given these conflicting signals, human review is advised to determine if the linkages to other flagged clusters indicate true coordinated fraud.",
+        "key_factors": [
+          "All 3 transactions independently flagged with share of 1.00",
+          "2 entities overlap with other flagged clusters",
+          "Mean risk score of 0.6279 versus population mean 0.4535",
+          "Lower relative risk ranking at 10 of 12 and percentile 16.67"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -2951,6 +3287,41 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-010",
+        "rank": 11,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 8.333333333333332,
+        "entities_in_other_clusters": 1,
+        "transactions_per_entity": 1.5,
+        "flagged_share": 0.3333333333333333,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "all 2 entities share card1",
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences",
+          "1 of its entities also appear in other flagged clusters"
+        ],
+        "contradicting": [
+          "activity spans 20 days, longer than a typical card-testing burst and consistent with ordinary shared usage",
+          "only 1 of 3 transactions were flagged; most of the cluster's activity scored normally",
+          "a single card across several entities is also the ordinary signature of one household or a shared business account"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-010",
+        "status": "OK",
+        "recommendation": "dismiss",
+        "confidence": "medium",
+        "rationale": "While findings supporting concern note that all 2 entities share card1 with a k-core number of 2 and 1 entity appears in other flagged clusters, the overall pattern strongly aligns with ordinary shared infrastructure such as a household or shared business account. The activity span of 20 days is far longer than a typical card-testing burst, and only 1 of 3 transactions was flagged by the model. Additionally, the cluster demonstrates low overall risk metrics, with a mean risk score of 0.2179 compared to the population mean risk score of 0.4535, placing it at a risk percentile of 8.33 and a rank by risk of 11 of 12 across a total amount inr of 55528.00.",
+        "key_factors": [
+          "20-day activity span consistent with ordinary shared usage",
+          "Low mean risk score of 0.2179 and risk percentile of 8.33",
+          "Only 1 of 3 transactions flagged by the model",
+          "Shared card1 across 2 entities with 1 entity in other flagged clusters"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     },
     {
@@ -3129,6 +3500,40 @@
             "target": null
           }
         ]
+      },
+      "case": {
+        "case_id": "CASE-011",
+        "rank": 12,
+        "total_flagged_clusters": 12,
+        "risk_percentile": 0.0,
+        "entities_in_other_clusters": 0,
+        "transactions_per_entity": 1.5,
+        "flagged_share": 0.3333333333333333,
+        "population_mean_risk": 0.4534916666666668,
+        "corroborating": [
+          "all 2 entities share 2 identifying attributes (card1, addr1)",
+          "k-core number 2 indicates mutually reinforcing links rather than a chain of one-off coincidences"
+        ],
+        "contradicting": [
+          "activity spans 26 days, longer than a typical card-testing burst and consistent with ordinary shared usage",
+          "only 1 of 3 transactions were flagged; most of the cluster's activity scored normally",
+          "a single card across several entities is also the ordinary signature of one household or a shared business account"
+        ]
+      },
+      "disposition": {
+        "case_id": "CASE-011",
+        "status": "OK",
+        "recommendation": "dismiss",
+        "confidence": "high",
+        "rationale": "I recommend dismissing this cluster, as the evidence strongly points toward ordinary shared infrastructure, such as a household or shared business account. On one hand, all 2 entities share 2 identifying attributes (card1, addr1) with a k-core number 2, indicating mutually reinforcing links rather than random coincidences. On the other hand, the cluster's activity spans 26 days\u2014significantly longer than a typical card-testing burst\u2014and only 1 of 3 transactions was flagged by the model. Furthermore, the cluster ranks 12 of 12 by risk, with a mean risk score of 0.2150 that falls well below the population mean risk score of 0.4535, indicating that most of the cluster's activity is considered low risk.",
+        "key_factors": [
+          "Activity span of 26 days indicates routine shared usage",
+          "Single shared card and address suggest legitimate household usage",
+          "Lowest risk rank of 12 of 12 with mean risk score of 0.2150",
+          "Only 1 of 3 transactions flagged by the model"
+        ],
+        "rejection_reason": null,
+        "requires_human_approval": true
       }
     }
   ],

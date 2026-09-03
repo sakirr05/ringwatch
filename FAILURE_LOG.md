@@ -118,6 +118,30 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-04 19:20] — I widened a safety guard and nearly shipped it without checking it still caught anything
+
+- **Symptom:** No error. The orchestrator's `CaseFile.allowed_numbers()` extends the
+  narrative layer's provenance allow-set with rank, percentile, cross-cluster overlap, and
+  every figure quoted inside the derived findings. All 12 drafts validated on the first
+  attempt, zero rejections, zero correction rounds. I wrote that down as a good result.
+- **Diagnosis:** A 100% pass rate is exactly what a guard that no longer rejects anything
+  looks like. I had made the allow-set wider and had no measurement of whether it was still
+  selective — the honest reading of "12/12 passed" is ambiguous between "the model behaved"
+  and "the check stopped working," and I could not tell which. So I measured it: 20,000
+  sampled plausible figures against the 12 real case files. **0.12% accepted** (23 of
+  20,000), so fabrication is genuinely caught. But the same measurement surfaced something
+  I had not thought about — a figure borrowed from a *different* cluster passes 29% of the
+  time above 10, and **100% of the time at 0–10**, because the allow-set is small (median
+  27 tokens, 11 of them the unconditional small-integer allowance) and small clusters
+  honestly share figures.
+- **Fix:** Pinned both numbers as tests and narrowed the README claim to what is actually
+  true: the guard prevents **fabrication**, not **misattribution**. Writing the second test
+  caught me a third time — I first asserted the guard would reject `9` borrowed from a
+  sibling cluster, and it did not, because 0–10 are allowed unconditionally by design. My
+  test was wrong, not the code, and fixing the test rather than loosening the guard is the
+  whole point. The gap is now documented in three places instead of being an unexamined
+  assumption in one.
+
 ## [2026-09-04 15:40] — A z-score of exactly zero that meant "no power", not "no effect"
 
 - **Symptom:** Running the project's own `ring_concentration_test` on Elliptic's observed

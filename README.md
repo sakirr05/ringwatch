@@ -201,32 +201,40 @@ flowchart TB
         MODEL["core/model.py<br/>LightGBM · CPU · seed=42"]
         EVAL["core/evaluate.py<br/><b>AUC-PR</b> · PR curve<br/>insult-rate costing"]
         CLUST["core/clusters.py<br/>selects flagged clusters<br/>computes all evidence"]
+        INV["core/investigation.py<br/>assembles the case file<br/><b>findings for AND against</b>"]
 
         RAW --> SPLIT --> FEAT --> MODEL
         SPLIT --> UID
         CC & KC -->|structural features only<br/>no label-derived features| MODEL
-        MODEL --> EVAL --> CLUST
+        MODEL --> EVAL --> CLUST --> INV
     end
 
-    CONTRACT["<b>ai/contract.py</b><br/>frozen ClusterEvidence<br/>━━━ THE BOUNDARY ━━━<br/>the only shared surface"]
+    CONTRACT["<b>ai/contract.py</b><br/>frozen ClusterEvidence + CaseFile<br/>━━━ THE BOUNDARY ━━━<br/>the only shared surface<br/><i>no action surface exists here</i>"]
 
-    subgraph AI["✍️ NARRATIVE LAYER — ai/ · writes only sentences"]
+    subgraph AI["✍️ NARRATIVE + ADVISORY LAYER — ai/ · writes only sentences"]
         direction TB
         PROV["ai/provider.py<br/>Gemini → Groq fallback<br/>retry once · SHA-256 cache"]
         SCHEMA["ai/schema.py<br/>strict JSON validation<br/><b>number-provenance guard</b>"]
         OUT["validated narrative<br/>or NARRATIVE_UNAVAILABLE"]
-        PROV --> SCHEMA --> OUT
+        DISP["ai/disposition.py<br/>drafts confirm/dismiss/escalate<br/><b>advisory only</b>"]
+        PROV --> SCHEMA --> OUT & DISP
     end
 
+    GATE["👤 <b>HUMAN APPROVAL GATE</b><br/>app/main.py · approve / reject<br/>writes an append-only audit row<br/><b>executes nothing</b>"]
+
     CLUST -->|already-flagged clusters<br/>+ their evidence| CONTRACT
+    INV -->|frozen case file| CONTRACT
     CONTRACT --> PROV
+    DISP -->|recommendation, never a decision| GATE
     AI -.->|❌ no import path back<br/>enforced by test| DET
+    GATE -.->|❌ no card blocked, no API called<br/>detection-only| DET
 
     style DET fill:#e8f4ea,stroke:#2d6a4f,stroke-width:3px
     style AI fill:#eef2fb,stroke:#3d5a99,stroke-width:3px
     style CONTRACT fill:#fff4e0,stroke:#b06500,stroke-width:3px
     style KC fill:#d8eede,stroke:#2d6a4f,stroke-width:2px
     style SCHEMA fill:#dde6f7,stroke:#3d5a99,stroke-width:2px
+    style GATE fill:#fdf0ee,stroke:#a1574c,stroke-width:3px
 ```
 
 ### The latency boundary
@@ -354,6 +362,123 @@ Example (cluster 8, `SHARED_CREDENTIAL_REUSE`, confidence medium):
 > user authorization or credential compromise.
 
 Every number in that paragraph was computed by `core/`. The model chose the words.
+
+## The investigation orchestrator — the guardrail is the feature
+
+RingWatch has one agentic component. It reads a case file and drafts a recommended
+disposition — **confirm**, **dismiss** or **escalate** — with reasoning. What makes it worth
+building is not what it can do; it is what it structurally cannot.
+
+**Four prohibitions, none of them policy:**
+
+| It cannot… | Because |
+|---|---|
+| Compute or alter a score | `ai/`'s entire *transitive* import closure is the standard library plus `requests`. No `core`, no `numpy`, no LightGBM. There is no scoring code reachable from it. |
+| Select or deselect a cluster | Selection happened in `core/clusters.py` before it ran, at the insult-constrained threshold. |
+| Execute anything | There is no action surface in `ai/contract.py`. No client, no callback, no write path. It returns a frozen dataclass. |
+| State a number it was not given | Every numeric token in the rationale *and* in every `key_factor` must appear in the case file, or the response is rejected. |
+
+`tests/test_ai_boundary.py` enforces the first by walking the import graph — and it passes
+**unchanged** after this layer was added, which was the condition for building it at all.
+
+### The case file argues both ways, on purpose
+
+`core/investigation.py` derives two lists of factual statements from figures the engine
+already computed: findings supporting concern, and findings arguing against it. On the 12
+flagged clusters that is **37 supporting and 22 against**, with 10 of 12 clusters carrying
+at least one against-finding.
+
+This is not decoration. A case file that assembles only incriminating detail is a
+prosecutor's brief, and an investigation tool that only ever builds one is *worse than no
+tool* — it manufactures the confidence a reviewer then rubber-stamps. So a 20-day activity
+span is recorded as "longer than a typical card-testing burst," a single shared card across
+several entities gets its innocent explanation ("one household or a shared business
+account"), and a cluster where only 1 of 3 transactions was flagged is recorded as mostly
+ordinary activity.
+
+They are *facts handed to the drafter*, not the drafter's opinions about the evidence. That
+distinction is what makes it safe to reason from them while still being unable to produce a
+number.
+
+### What it actually did
+
+All **12 of 12 drafts validated** — no invented figures, no schema violations, no
+correction rounds needed.
+
+| Recommendation | Count |
+|---|---|
+| escalate | 9 |
+| dismiss | 2 |
+| confirm | 1 |
+
+**Mostly "escalate" is the honest answer, not a failure to decide.** With no ring-level
+ground truth, a cluster of two entities sharing a card over 20 days genuinely *is*
+ambiguous, and a layer that confidently confirmed it would be manufacturing certainty the
+evidence does not contain. Self-reported confidence was `medium` on 10 of 12 — and, as with
+the narrative layer, that field is left deliberately unvalidated for the reasons in
+[Why the LLM's `confidence` field is left unvalidated](#why-the-llms-confidence-field-is-left-unvalidated).
+
+Of the 10 clusters that carried an against-finding, **all 10 drafts engaged with one**. The
+two `dismiss` recommendations both lean on it explicitly:
+
+> …the overall pattern strongly aligns with ordinary shared infrastructure such as a
+> household or shared business account. The activity span of 20 days is far longer than a
+> typical card-testing burst, and only 1 of 3 transactions was flagged by the model.
+
+### How much the provenance guard actually catches — measured, because widening it was a real risk
+
+`CaseFile.allowed_numbers()` is a deliberately *wider* allow-set than `ClusterEvidence`'s:
+it adds rank, percentile, cross-cluster overlap, and every figure quoted inside the derived
+findings. A guard that widens until it stops rejecting anything is theatre, so this was
+measured rather than assumed.
+
+Across the 12 real case files the allow-set grew from 17–21 tokens to 21–31 (median 27).
+Against that:
+
+| test | result |
+|---|---|
+| Randomly sampled plausible figures (counts, risk scores, rupee amounts) | **0.12% accepted** — 23 of 20,000 |
+| A figure borrowed from a *different* cluster, above 10 | 29% accepted |
+| A figure borrowed from a different cluster, 0–10 | **100% accepted** |
+
+**The guard prevents fabrication and does not prevent misattribution.** Those are different
+failures and only the first is claimed. Inventing `Rs 4,20,000` out of nothing is caught
+essentially always; quoting cluster 3's 26-day span while writing about cluster 8 is not
+caught at all, because the guard checks provenance against *this* case file, not identity
+across case files, and small clusters genuinely share figures.
+
+The 0–10 row is the documented unconditional allowance — those integers appear in ordinary
+prose ("two of the three cards") and banning them would reject valid output without
+preventing meaningful fabrication. It is the right trade, and it is also precisely why the
+misattribution number is 100% there. Both numbers are pinned in
+`tests/test_investigation.py` so neither can quietly drift.
+
+### The approval gate
+
+Every draft sits behind an explicit human approve/reject in the dashboard, drawn as the
+loudest element on the page — heavy border, hatched ground, the word DRAFT before the verb.
+
+**Approving executes nothing.** It writes one row to an append-only audit trail: the draft,
+the exact case file the model saw, who decided, and when. No card is blocked, no customer is
+contacted, no Razorpay API is called. The `/api/dispositions/{case_id}/decision` response
+says so in the payload (`"applied": false`).
+
+Two details that matter more than they look:
+
+- **The draft and the evidence are read server-side from the committed artifact, never from
+  the request.** A client cannot rewrite the record of what the model said or what it was
+  shown. `tests/test_audit.py` posts a forged body and asserts it is ignored.
+- **The trail is append-only by shape, not by convention.** There is no `UPDATE` or `DELETE`
+  against that table anywhere in `app/store.py`, and a test asserts it. A reviewer changing
+  their mind adds a row. An audit log you can edit cannot answer the question an audit asks.
+
+`app/main.py` is also asserted to import no HTTP client, no mail library and no payment SDK
+— pinned as a test because "approve" is exactly the button someone would later wire to a
+real block. If that day comes, the test fails first and the caveat gets updated rather than
+quietly becoming false.
+
+Roughly 2% of financial-services AI deployments are fully autonomous. The reason is this
+one, and RingWatch does not pretend otherwise.
 
 ## The webhook: what transfers to a new payment ecosystem, and what doesn't
 
@@ -901,6 +1026,25 @@ Written as they are discovered, not reconstructed at the end.
   the cost-minimising threshold downward. Platt scaling or isotonic regression on a
   held-out slice is the obvious fix and is not implemented. See
   [Calibration](#calibration-are-the-probabilities-trustworthy).
+- **The orchestrator's recommendations are unvalidated, and cannot be validated here.**
+  12 of 12 drafts passed schema and provenance checks — that measures *containment*, not
+  correctness. Whether "escalate" was the right call on a given cluster needs ring-level
+  ground truth, which this project does not have and has refused to fabricate. The same
+  closed loop that makes the `confidence` field unvalidatable applies, with the same force.
+- **The findings the case file derives are heuristics with hand-picked thresholds.**
+  `BURST_WINDOW_DAYS = 7` and `LOW_FLAGGED_SHARE = 0.34` are judgment calls about what
+  reads as a card-testing burst, not derived optima. Nothing thresholds a decision on them
+  — they only frame statements shown to the drafter and to the reviewer — but a different
+  analyst would reasonably pick different numbers and get differently-worded case files.
+- **Cross-cluster entity overlap is approximated by shared attribute signature**, not by
+  exact identity matching. `ClusterEvidence` deliberately does not carry entity
+  identifiers across clusters, so "2 of its entities also appear in other flagged
+  clusters" means two clusters share an attribute signature. It is named honestly in the
+  code and is weaker evidence than exact matching would be.
+- **The audit trail does not survive a restart on the free tier.** It is the same ephemeral
+  SQLite file as the webhook log. Fine for a demonstration, stated rather than discovered,
+  and no reported metric depends on it — but it is not an audit trail you could actually
+  rely on in production without durable storage.
 
 ## Deployment
 

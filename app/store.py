@@ -71,6 +71,23 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_events_received
                 ON events(received_at DESC);
+
+            -- Audit trail for the investigation orchestrator. Append-only by
+            -- convention AND by shape: there is no UPDATE or DELETE anywhere in this
+            -- module, so a reviewer's later change to a case adds a row rather than
+            -- rewriting one. An audit log you can edit is not an audit log.
+            CREATE TABLE IF NOT EXISTS dispositions (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id       TEXT NOT NULL,
+                decided_at    TEXT NOT NULL,
+                decision      TEXT NOT NULL,
+                reviewer      TEXT NOT NULL,
+                note          TEXT,
+                drafted       TEXT NOT NULL,
+                evidence_seen TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_dispositions_case
+                ON dispositions(case_id, id DESC);
             """
         )
 
@@ -185,3 +202,119 @@ def all_payments() -> list[tuple[str, dict]]:
 def event_count() -> int:
     with _LOCK, _connect() as connection:
         return int(connection.execute("SELECT COUNT(*) FROM events").fetchone()[0])
+
+
+# ---------------------------------------------------------------------------
+# ORCHESTRATOR AUDIT TRAIL
+#
+# What is recorded is deliberately more than the outcome. `drafted` is the full
+# recommendation the model produced and `evidence_seen` is the exact case file it was
+# handed, so a later reviewer can reconstruct *why* a recommendation was made and judge
+# whether the human was right to accept it. Logging only "approved" would make the trail
+# useless for exactly the question an audit asks.
+#
+# Nothing here executes anything. Recording an approval blocks no card, notifies no
+# customer, and calls no external service -- the row is the entire effect.
+# ---------------------------------------------------------------------------
+
+DECISIONS: tuple[str, ...] = ("approved", "rejected")
+
+
+@dataclass
+class AuditEntry:
+    id: int
+    case_id: str
+    decided_at: str
+    decision: str
+    reviewer: str
+    note: str | None
+    drafted: dict
+    evidence_seen: dict
+
+
+def record_decision(
+    case_id: str,
+    decision: str,
+    reviewer: str,
+    drafted: dict,
+    evidence_seen: dict,
+    note: str | None = None,
+) -> AuditEntry:
+    """Append one human decision on a drafted disposition. Never overwrites."""
+    if decision not in DECISIONS:
+        raise ValueError(f"decision must be one of {', '.join(DECISIONS)}, got {decision!r}")
+    if not case_id:
+        raise ValueError("case_id is required")
+
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    try:
+        with _LOCK, _connect() as connection:
+            cursor = connection.execute(
+                "INSERT INTO dispositions "
+                "(case_id, decided_at, decision, reviewer, note, drafted, evidence_seen) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    case_id,
+                    now,
+                    decision,
+                    reviewer or "unattributed",
+                    note,
+                    json.dumps(drafted),
+                    json.dumps(evidence_seen),
+                ),
+            )
+            new_id = int(cursor.lastrowid)
+    except sqlite3.Error as exc:
+        raise StorageError(str(exc)) from exc
+
+    return AuditEntry(
+        id=new_id,
+        case_id=case_id,
+        decided_at=now,
+        decision=decision,
+        reviewer=reviewer or "unattributed",
+        note=note,
+        drafted=drafted,
+        evidence_seen=evidence_seen,
+    )
+
+
+def _row_to_entry(row: sqlite3.Row) -> AuditEntry:
+    return AuditEntry(
+        id=int(row["id"]),
+        case_id=row["case_id"],
+        decided_at=row["decided_at"],
+        decision=row["decision"],
+        reviewer=row["reviewer"],
+        note=row["note"],
+        drafted=json.loads(row["drafted"]),
+        evidence_seen=json.loads(row["evidence_seen"]),
+    )
+
+
+def audit_trail(case_id: str | None = None, limit: int = 50) -> list[AuditEntry]:
+    """The trail, newest first. Optionally narrowed to one case."""
+    with _LOCK, _connect() as connection:
+        if case_id:
+            rows = connection.execute(
+                "SELECT * FROM dispositions WHERE case_id = ? ORDER BY id DESC LIMIT ?",
+                (case_id, limit),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                "SELECT * FROM dispositions ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+    return [_row_to_entry(row) for row in rows]
+
+
+def latest_decisions() -> dict[str, AuditEntry]:
+    """The most recent decision per case, for rendering gate state.
+
+    Superseded rows stay in the table; this only picks which one is current.
+    """
+    with _LOCK, _connect() as connection:
+        rows = connection.execute(
+            "SELECT * FROM dispositions WHERE id IN "
+            "(SELECT MAX(id) FROM dispositions GROUP BY case_id)"
+        ).fetchall()
+    return {row["case_id"]: _row_to_entry(row) for row in rows}
