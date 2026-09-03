@@ -23,8 +23,14 @@ def load_results(path: Path | None = None) -> dict:
     """Read docs/results.json.
 
     Deliberately not cached in a module global: on Render the file is baked into the image
-    at deploy time, and re-reading a 24 KB file per request is far cheaper than reasoning
-    about staleness. If that ever shows up in a profile, cache it then.
+    at deploy time, and re-reading it per request is far cheaper than reasoning about
+    staleness. That was re-checked once the artifact grew to 112 KB (this docstring used to
+    say 24 KB, which was four phases out of date): a full read and parse costs **0.34 ms**,
+    against 5.2 ms to render the dashboard it feeds. Still not worth caching.
+
+    `app/main.py` does keep the two-field `meta` block in memory, and for a different
+    reason — a liveness probe must not depend on the filesystem. See `results_metadata`
+    there.
     """
     path = path or RESULTS_PATH
     if not path.exists():

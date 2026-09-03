@@ -1,0 +1,61 @@
+# Keep the Render free-tier instance warm.
+#
+# WHY THIS EXISTS
+# ---------------
+# Render's free tier spins an instance down after ~15 minutes idle. The next request then
+# waits 30-60 seconds while the container is scheduled and booted. That delay is entirely
+# outside the application: during it, our process is not running, so no amount of
+# skeleton markup or fast rendering helps. Measured for comparison, the app's own numbers
+# are 178 ms to import and 5 ms to render the full dashboard -- the cold start is three
+# orders of magnitude larger than anything the code controls.
+#
+# A periodic request is therefore the only fix that addresses the actual cause. It hits
+# /health, which is the cheap liveness endpoint (no disk read, ~1.4 ms).
+#
+# HONEST CAVEATS
+# --------------
+#   * GitHub's scheduled workflows are BEST EFFORT. They are frequently delayed, sometimes
+#     by 10+ minutes, and are heavily contended on the hour -- hence the offset minutes
+#     below rather than */10. So this reduces cold starts; it does not eliminate them, and
+#     the README still tells visitors a first request may be slow.
+#   * GitHub disables scheduled workflows on public repos after 60 days with no commits.
+#     If this repo goes quiet, the pings stop silently.
+#   * Free-tier instance hours are 750/month and an always-warm service uses ~730, so this
+#     fits the allowance -- but it uses nearly all of it. Running a second free service on
+#     the same account alongside this would exceed it.
+#   * `continue-on-error` is deliberate: a failed ping is not a broken build, and a red X
+#     on the repo for a transient network blip would be noise. The step still logs the
+#     status code so a real outage is visible in the run log.
+
+name: keepalive
+
+on:
+  schedule:
+    # Every 10 minutes, offset off the hour where GitHub's queue is least contended.
+    - cron: "3,13,23,33,43,53 * * * *"
+  workflow_dispatch: {}       # so it can be triggered by hand before a demo
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake the instance
+        continue-on-error: true
+        env:
+          URL: https://ringwatch.onrender.com/health
+        run: |
+          # --max-time 90 covers a full cold boot; a warm instance answers in well under a
+          # second. -w prints the status and total time so the log shows which one it was.
+          code=$(curl -sS -o /tmp/health.json -w '%{http_code} %{time_total}s' \
+                      --max-time 90 --retry 2 --retry-delay 15 "$URL") || {
+            echo "ping failed to complete (instance may be down)"; exit 0; }
+          echo "GET /health -> $code"
+          cat /tmp/health.json || true

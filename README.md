@@ -1149,6 +1149,50 @@ gitignored, and the deployed instance needs the booster for its clearly-labelled
 out-of-distribution scoring track. If it is absent the app still starts and that track
 reports "unavailable" — nothing else is affected.
 
+### Cold start: what was fixed, and what cannot be
+
+The free tier spins the instance down after ~15 minutes idle, and the next request waits
+30–60 seconds. Before optimising anything, the app's own costs were measured:
+
+| | |
+|---|---|
+| `import app.main` | **178 ms** — 154 ms of which is FastAPI itself |
+| Render the full 250 KB dashboard | **5.2 ms** |
+| `load_results()` (112 KB JSON) | **0.34 ms** |
+| `GET /health` | 1.86 ms → **1.39 ms** |
+
+**The cold start is three orders of magnitude larger than anything the code controls.**
+During those 30–60 seconds the container is not running, so no skeleton markup, no faster
+render and no cheaper endpoint can help — none of it has been served yet. Optimising the
+app for cold start would have been theatre, and the measurements are here so that claim is
+checkable rather than asserted.
+
+What was actually done, and why each thing is justified:
+
+- **A liveness/readiness split, for correctness rather than speed.** `render.yaml` points
+  `healthCheckPath` at `/health`, and `/health` used to return **503 when
+  `docs/results.json` could not be read**. That reports a *data* problem to the platform as
+  "restart me" — and a restart cannot conjure a missing committed file, so the failure mode
+  was a restart loop. `/health` is now pure liveness: it touches no disk, always answers 200
+  while the process is alive, and reports the artifact state as a *field*. The new `/ready`
+  answers the readiness question and does 503, deliberately outside the restart path. The
+  0.47 ms saved is incidental; the point is that a liveness probe must not depend on the
+  filesystem.
+- **Figures no longer shift the layout, and no longer block first paint.** Both plots are
+  ~123 KB, sit below the fold, and were `width: 100%` with **no declared height** — so each
+  occupied zero height until it decoded, then snapped to full size and shoved everything
+  below it down, twice, on exactly the slow connection this section is about. They now carry
+  intrinsic `width`/`height`, a pinned `aspect-ratio`, `loading="lazy"` and
+  `decoding="async"`, with a shimmer placeholder inside the reserved box (stilled under
+  `prefers-reduced-motion`). First-paint bytes drop from 498 KB to 252 KB — **49% deferred**
+  — and nothing moves when the images land.
+- **An external ping every 10 minutes** (`.github/workflows/keepalive.yml`) hitting
+  `/health`. This is the only change that addresses the actual cause. Its caveats are in the
+  workflow file and are real: GitHub's scheduled runs are best-effort and often late, they
+  stop after 60 days without commits, and staying warm consumes ~730 of the 750 free
+  instance-hours per month. **It reduces cold starts; it does not eliminate them**, which is
+  why the warning at the top of this README stays.
+
 ### 6. Tests
 
 ```bash

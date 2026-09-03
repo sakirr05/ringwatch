@@ -19,3 +19,7 @@ python-dotenv>=1.0
 # Tests
 pytest>=8.0
 httpx>=0.27
+# Already installed transitively by uvicorn[standard]; declared because
+# tests/test_coldstart.py imports it directly and an undeclared transitive
+# import is a break waiting for a dependency bump. Installs nothing new.
+pyyaml>=6.0

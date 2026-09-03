@@ -123,9 +123,31 @@ tr.is-worse td { color: var(--warn); }
 .big small { font-size: .78rem; font-weight: 400; color: var(--muted); letter-spacing: 0;
   font-family: inherit; }
 
+/* ---- figures: reserve the space before the bytes arrive ----
+   Both plots are ~123 KB and sit below the fold. Previously they were `width: 100%` with
+   no declared height, so each occupied ZERO height until it decoded and then snapped to
+   full size, shoving everything below it down -- twice, on exactly the slow first load
+   this project warns about. The intrinsic dimensions are now on the <img> tags and the
+   aspect ratio is pinned here, so the box is the right size from first paint and the
+   shimmer sits inside it. Nothing moves when the image lands. */
 figure { margin: 1.4rem 0; }
-figure img { width: 100%; border: 1px solid var(--rule); background: #fff;
+figure img { width: 100%; height: auto; display: block;
+  border: 1px solid var(--rule); background: #fff;
   border-radius: var(--radius); box-shadow: var(--shadow); }
+figure img[width][height] { aspect-ratio: attr(width) / attr(height); }
+figure img.pr { aspect-ratio: 1125 / 825; }
+figure img.rel { aspect-ratio: 1050 / 930; }
+
+/* The placeholder itself: a slow sweep over the panel colour, removed the moment the
+   image paints. Purely decorative, so it is hidden from assistive tech and stilled for
+   anyone who has asked for reduced motion. */
+figure img:not(.loaded) { background:
+  linear-gradient(100deg, var(--panel) 30%, var(--accent-bg) 50%, var(--panel) 70%)
+  var(--bg); background-size: 220% 100%; animation: shimmer 1.6s linear infinite; }
+@keyframes shimmer { to { background-position: -220% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  figure img:not(.loaded) { animation: none; background: var(--accent-bg); }
+}
 figcaption { font-size: .84rem; color: var(--muted); margin-top: .6rem; }
 
 .cluster { border: 1px solid var(--rule); background: var(--panel); margin: .7rem 0;
@@ -415,7 +437,9 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
   to it.</p>
 
   <figure>
-    <img src="/static/pr_curve.png" alt="Precision-recall curves for all four variants, overlapping almost exactly">
+    <img class="pr" src="/static/pr_curve.png" width="1125" height="825"
+         loading="lazy" decoding="async"
+         alt="Precision-recall curves for all four variants, overlapping almost exactly">
     <figcaption>The four curves are indistinguishable by eye. That is the honest picture of
     this result.</figcaption>
   </figure>
@@ -613,7 +637,9 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
   </div>
 
   <figure>
-    <img src="/static/reliability.png" alt="Reliability diagram; every point sits above the diagonal">
+    <img class="rel" src="/static/reliability.png" width="1050" height="930"
+         loading="lazy" decoding="async"
+         alt="Reliability diagram; every point sits above the diagonal">
     <figcaption><strong>The finding: the model is systematically under-confident.</strong>
     In every bin, for both variants, observed fraud exceeds the predicted probability —
     consistent across three orders of magnitude, so bias rather than noise. Uniformly-low
@@ -1118,6 +1144,28 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
     node.addEventListener("mouseleave", function () { on(false); });
     node.addEventListener("focus", function () { on(true); });
     node.addEventListener("blur", function () { on(false); });
+  });
+})();
+
+/* ---------------------------------------------------------------------------
+ * FIGURE LOADING STATE
+ *
+ * Clears the shimmer once each plot has actually painted. The `complete` check matters:
+ * a cached image can finish before this script runs, and without it the placeholder would
+ * animate forever underneath a fully-loaded picture.
+ *
+ * This addresses layout shift and perceived latency on a slow connection. It does NOT
+ * address the free-tier cold start -- during those 30-60 seconds the container is not
+ * running, so no markup of ours has been served yet and nothing on the page can help. The
+ * fix for that is the external ping in .github/workflows/keepalive.yml.
+ * ------------------------------------------------------------------------- */
+(function () {
+  var figures = document.querySelectorAll("figure img");
+  Array.prototype.forEach.call(figures, function (img) {
+    function done() { img.classList.add("loaded"); }
+    if (img.complete && img.naturalWidth) { done(); return; }
+    img.addEventListener("load", done);
+    img.addEventListener("error", done);  // a broken image must not shimmer forever
   });
 })();
 

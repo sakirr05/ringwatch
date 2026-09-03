@@ -69,10 +69,49 @@ def _fmt_inr(value: float) -> str:
 TEMPLATES.env.filters["inr"] = _fmt_inr
 
 
+# ---------------------------------------------------------------------------
+# ARTIFACT IDENTITY, HELD IN MEMORY
+#
+# Only the `meta` block (git commit + generation time) is cached, and the reason is NOT
+# speed -- that was measured, and reading the whole 112 KB artifact costs 0.34 ms, which is
+# 18% of a 1.9 ms /health request and worth nothing. The reason is that a liveness probe
+# must not depend on the filesystem. `/health` is what Render polls; if it answers "sick"
+# because a data file cannot be read, the platform restarts the container, and a restart
+# cannot conjure a missing file. See `/health` and `/ready` below.
+#
+# The dashboard itself still re-reads the artifact per request, so regenerating results
+# locally shows up immediately. Only the reported commit is fixed until restart, which on a
+# deployed immutable image is exactly right.
+# ---------------------------------------------------------------------------
+
+_RESULTS_META: dict | None = None
+
+
+def results_metadata() -> dict | None:
+    """The artifact's identity, read at most once. None if it could not be read."""
+    global _RESULTS_META
+    if _RESULTS_META is None:
+        try:
+            meta = load_results()["meta"]
+        except (ResultsUnavailable, KeyError, ValueError):
+            return None
+        _RESULTS_META = {
+            "git_commit": meta.get("git_commit"),
+            "generated_at": meta.get("generated_at"),
+        }
+    return _RESULTS_META
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Ensure the webhook tables exist before the first request."""
+    """Ensure the webhook tables exist, and read the artifact identity once, before serving.
+
+    Priming here means the first real visitor never pays for it. `results_metadata` is
+    memoised rather than startup-only so the app is still correct when the lifespan does
+    not run — which is exactly what happens under `TestClient(app)` outside a `with` block.
+    """
     store.init_db()
+    results_metadata()
     yield
 
 
@@ -212,18 +251,49 @@ def api_events(limit: int = 25) -> JSONResponse:
 
 @app.get("/health")
 def health() -> JSONResponse:
-    """Liveness probe for the hosting platform."""
+    """Liveness: is this process able to answer? Touches no disk, always 200 while alive.
+
+    This is what `render.yaml` points `healthCheckPath` at, and the distinction from
+    `/ready` below is deliberate. The previous version returned 503 when the results
+    artifact could not be read, which conflates two questions the platform answers very
+    differently: "should you restart me?" and "should you send me traffic?" Restarting
+    cannot restore a missing committed file, so answering the first question with the
+    second one's evidence buys a restart loop over a data problem.
+
+    The artifact's state is still reported, as a field rather than as a status code.
+    """
+    meta = results_metadata()
+    body = {
+        "status": "ok",
+        "results": "loaded" if meta else "unavailable",
+    }
+    if meta:
+        body["results_commit"] = meta["git_commit"]
+        body["generated_at"] = meta["generated_at"]
+    return JSONResponse(body)
+
+
+@app.get("/ready")
+def ready() -> JSONResponse:
+    """Readiness: can this process actually serve the dashboard?
+
+    Separate from `/health` on purpose, and it does read the artifact — readiness is
+    precisely the question whose answer depends on the filesystem. Kept out of the
+    platform's restart path.
+    """
     try:
         results = load_results()
-        return JSONResponse(
-            {
-                "status": "ok",
-                "results_commit": results["meta"]["git_commit"],
-                "generated_at": results["meta"]["generated_at"],
-            }
-        )
     except ResultsUnavailable as exc:
-        return JSONResponse({"status": "degraded", "detail": str(exc)}, status_code=503)
+        return JSONResponse({"ready": False, "detail": str(exc)}, status_code=503)
+
+    return JSONResponse(
+        {
+            "ready": True,
+            "results_commit": results["meta"]["git_commit"],
+            "generated_at": results["meta"]["generated_at"],
+            "clusters": len(results.get("clusters", [])),
+        }
+    )
 
 
 @app.get("/api/results")

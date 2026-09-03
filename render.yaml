@@ -18,6 +18,12 @@ services:
     region: singapore          # closest to Razorpay's own infrastructure
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # LIVENESS, not readiness -- and the distinction is load-bearing. /health touches no
+    # disk and answers 200 whenever the process is alive. An earlier version returned 503
+    # when docs/results.json could not be read, which tells Render "restart me" in response
+    # to a *data* problem; a restart cannot restore a missing committed file, so that was a
+    # restart loop waiting to happen. /ready answers the readiness question and does 503,
+    # deliberately outside this path. tests/test_coldstart.py pins both.
     healthCheckPath: /health
     autoDeploy: true
     envVars:

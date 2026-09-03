@@ -118,6 +118,37 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-04 21:05] — The cold-start optimisation I was about to do would have been theatre
+
+- **Symptom:** The plan for this phase said to make `/health` "genuinely cheap" because it
+  reads `docs/results.json`, and to add a skeleton loading state for the free tier's 30-60
+  second cold start. Both sound obviously right. Neither survived measurement.
+- **Diagnosis:** Reading the whole 112 KB artifact costs **0.34 ms** — 18% of a 1.86 ms
+  `/health` request. Rendering the entire 250 KB dashboard costs **5.2 ms**. Importing the
+  app costs **178 ms**, and 154 ms of that is FastAPI itself, which I do not control. The
+  cold start is 30-60 *seconds* of container scheduling, during which our process is not
+  running at all: no markup we serve can appear, because none of it has been served. So a
+  dashboard skeleton would have looked like a fix, measured as an improvement to nothing,
+  and cost a round trip on every warm load. The `load_results` docstring also still claimed
+  the file was 24 KB; it is 112 KB, and the stale figure was what made "cheap /health" sound
+  urgent in the first place.
+- **Fix:** Reported the measurements instead of acting on the premise, then did the three
+  things the measurements actually justify. (1) `/health` had a real bug that had nothing to
+  do with speed: `render.yaml` points `healthCheckPath` at it, and it returned **503 when
+  the results artifact could not be read** — reporting a data problem to the platform as
+  "restart me", which cannot fix a missing committed file. That is a restart loop, so
+  liveness and readiness are now separate endpoints. (2) The loading state went where a
+  measurement pointed: both plots are ~123 KB, below the fold, and had **no declared
+  height**, so each occupied zero height until decode and then snapped — a double layout
+  shift on exactly the slow connection in question. Intrinsic dimensions, pinned aspect
+  ratio, lazy loading: first-paint bytes 498 KB -> 252 KB, 49% deferred. (3) The external
+  ping, which is the only change that touches the actual cause, shipped with its real
+  caveats (GitHub cron is best-effort, stops after 60 days of repo inactivity, and staying
+  warm eats ~730 of 750 free instance-hours).
+- **Worth stating plainly:** the honest output of this phase is that most of the cold start
+  is unfixable from inside the application, and the README says so with the numbers attached
+  rather than implying it was optimised away.
+
 ## [2026-09-04 19:20] — I widened a safety guard and nearly shipped it without checking it still caught anything
 
 - **Symptom:** No error. The orchestrator's `CaseFile.allowed_numbers()` extends the
