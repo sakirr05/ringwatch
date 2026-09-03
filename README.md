@@ -401,6 +401,77 @@ trained model does not.** Reporting that is more useful than quietly displaying 
 that means nothing — and stating it is the same discipline as reporting the negative
 ablation above.
 
+## Replication on a second dataset — Elliptic
+
+RingWatch's structural claim rests on a graph it had to **invent**: IEEE-CIS ships no edges,
+so the entity graph is inferred from a `card1 + addr1 + (day − D1)` fingerprint and then
+hub-suppressed to stop it percolating. Every finding therefore depends on that heuristic
+being reasonable, which the README previously asserted rather than measured.
+
+The Elliptic Bitcoin dataset (203,769 nodes, 234,355 **observed** edges) removes entity
+resolution as a confound. `PLAN_ELLIPTIC.md` records the predictions before any code ran.
+
+### It does not close the ground-truth gap, and that was checked first
+
+Elliptic's labels are `illicit` / `licit` / `unknown` attached to **transactions** — exactly
+like `isFraud`. There is no ring, cluster or actor identifier. **The ring-level limitation
+stands unchanged.** What Elliptic offers is a real graph, not real ring labels.
+
+### The finding: clustering replicates on a graph nobody invented
+
+| graph | illicit–illicit edge rate | permutation null | z |
+|---|---|---|---|
+| **Elliptic** (observed money flows) | 0.0272 | 0.0095 ± 0.0007 | **+24.9** |
+| **IEEE-CIS** (inferred, projected) | 0.0036 | 0.0007 ± 0.0002 | **+17.0** |
+
+Illicit activity clusters far beyond chance on **both** — including the one whose edges were
+observed rather than guessed. The structural finding is not an artifact of the fingerprint
+heuristic.
+
+### The existing statistic broke, and the failure was informative
+
+Running the project's own `ring_concentration_test` on Elliptic returned **z = +0.0**, which
+reads like a clean null and is nothing of the sort. That statistic counts components in
+which *every* labelled member is illicit — sound when components average ~5 entities, as
+they do on IEEE-CIS. Elliptic's transaction-flow graph percolates: **49 components averaging
+950 labelled members**, largest 7,880. No component there could be all-illicit, and the null
+predicts none either. Zero against 0 ± 0 gives z = 0 **because the test has no power**, not
+because there is no clustering.
+
+Reporting that as "no concentration" would have been a false negative dressed as a finding.
+So the replication uses an edge-level homophily statistic whose unit is the edge rather than
+the component, which works at any component size — and it is run on **both** graphs so the
+comparison is like-for-like. A test pins the degeneracy so it cannot be forgotten.
+
+One more wrinkle: RingWatch's graph is **bipartite** (entities touch attribute nodes, never
+each other), so an edge statistic on its raw form finds zero entity–entity edges and returns
+`nan`. It is projected onto entities first — two linked when they share an attribute, which
+is what an edge there already means.
+
+### Graph quality: inferred vs observed
+
+| | IEEE-CIS (inferred) | Elliptic (observed) |
+|---|---|---|
+| nodes | 208,914 | 203,769 |
+| edges | 29,285 | 234,355 |
+| mean degree | 0.280 | 2.300 |
+| isolated nodes | **87.7%** | 0.0% |
+| components ≥2 | 4,935 | 49 |
+| largest component | 69 | **7,880** |
+| mean component size | 5.2 | 4,158.6 |
+| max k-core number | 3 | 9 |
+
+This is the measurement that replaces an assertion. The inferred graph is **an order of
+magnitude sparser** with 87.7% of entities isolated, while the observed graph percolates
+into a handful of giant components. Neither is "better" — they are different objects, one a
+set of accounts *guessed* to share an actor, the other money that *demonstrably moved*. But
+the contrast is also an argument **for** hub suppression arrived at from the opposite
+direction: without it, an entity graph tends toward exactly the percolated shape that made
+the component statistic useless here.
+
+All four pre-registered predictions held: stronger z on Elliptic, far larger components,
+a much sparser inferred graph, and a deeper k-core.
+
 ## Drift across the held-out period — and a metric that lies about it
 
 The model trains once on the first 141 days and is evaluated on the next 42. A single

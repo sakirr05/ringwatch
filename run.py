@@ -67,14 +67,14 @@ from core.drift import (
     trend_is_distinguishable_from_noise,
 )
 from core.model import train_model
-from core.ring_evidence import ring_concentration_test
+from core.ring_evidence import label_homophily_test, ring_concentration_test
 from core.split import split_summary, temporal_split
 
 from ai.narrate import narrate_all
 
 STAGES = (
     "data", "baseline", "graph", "ablation", "value", "cost", "drift",
-    "calibration", "narrate", "all",
+    "elliptic", "calibration", "narrate", "all",
 )
 
 
@@ -713,6 +713,140 @@ def stage_drift(df: pd.DataFrame | None = None) -> None:
     print("  not thresholds with a theoretical basis.")
 
 
+def stage_elliptic(df: pd.DataFrame | None = None) -> None:
+    """Does the concentration finding replicate on a graph nobody had to invent?
+
+    Elliptic does NOT provide ring-level ground truth -- its labels are transaction-level,
+    exactly like IEEE-CIS, so that limitation is unchanged. What it provides is an OBSERVED
+    graph, which removes the entity-resolution heuristic as a confound. See
+    PLAN_ELLIPTIC.md for the check that established this before any code was written.
+    """
+    banner("STAGE: Elliptic replication on an observed graph")
+
+    from core.elliptic import describe_graph, load_elliptic
+
+    try:
+        elliptic = load_elliptic()
+    except FileNotFoundError as exc:
+        print(exc)
+        return
+
+    labelled = elliptic.is_labelled
+    illicit = elliptic.is_illicit
+    print(f"loaded {elliptic.n_nodes:,} nodes, {elliptic.n_edges:,} observed edges")
+    print(f"  labelled          {labelled.sum():,} ({100 * labelled.mean():.1f}%)")
+    print(f"  illicit           {illicit.sum():,} "
+          f"({100 * illicit.sum() / max(labelled.sum(), 1):.1f}% of labelled)")
+    print(f"  unknown           {(~labelled).sum():,} ({100 * (~labelled).mean():.1f}%)")
+
+    banner("Concentration test on the observed graph")
+    print("Graph built on ALL observed edges; the statistic evaluated over labelled nodes")
+    print("only. Treating unknown as licit would invent ~157k negative labels; dropping")
+    print("unknown before building would delete the observed edges this dataset is for.\n")
+
+    components = connected_components(elliptic.adjacency)
+    degrees = np.array([len(n) for n in elliptic.adjacency], dtype=np.int64)
+    testable = labelled & (degrees > 0)
+
+    evidence = ring_concentration_test(
+        components, illicit.astype(int), testable
+    )
+    for line in evidence.summary_lines():
+        print(line)
+
+    print()
+    print("  -> This statistic is DEGENERATE here, and reporting its z as a null would be")
+    print("     a false negative dressed as a finding. It counts components in which EVERY")
+    print(f"     labelled member is illicit; Elliptic's components average "
+          f"{evidence.linked_entities / max(evidence.components, 1):,.0f} labelled")
+    print("     members, so none could be, and the null predicts none either. 0 against")
+    print("     0 +/- 0 gives z = 0 because the test had no power, not because there is")
+    print("     no clustering. It is a good statistic on IEEE-CIS (components ~5 entities)")
+    print("     and the wrong one on a percolated graph.")
+
+    banner("A statistic with power on both graphs: edge-level homophily")
+    print("Unit is the EDGE, not the component, so it works at any component size: the")
+    print("share of labelled-labelled edges joining two illicit nodes, against a null that")
+    print("shuffles labels with the topology held fixed. Run on BOTH graphs so the")
+    print("comparison is like-for-like.\n")
+
+    print("Elliptic (observed transaction-flow graph):")
+    elliptic_homophily = label_homophily_test(
+        elliptic.adjacency, illicit.astype(int), testable
+    )
+    for line in elliptic_homophily.summary_lines():
+        print(line)
+
+    # Same statistic on the inferred entity graph, for a like-for-like comparison.
+    df = df if df is not None else load_merged()
+    if UID_COL not in df.columns:
+        df = df.copy()
+        df[UID_COL] = build_uid(df)
+    inferred_graph = build_graph(entity_frame(df))
+    entity_fraud = (
+        df.dropna(subset=[UID_COL])
+        .groupby(UID_COL, observed=True)[TARGET]
+        .max()
+        .reindex(inferred_graph.uids)
+        .fillna(0)
+        .to_numpy()
+    )
+    padded = np.zeros(len(inferred_graph.adjacency), dtype=int)
+    padded[: inferred_graph.n_uids] = entity_fraud.astype(int)
+    inferred_degrees = np.array(
+        [len(n) for n in inferred_graph.adjacency], dtype=np.int64
+    )
+    inferred_testable = np.zeros(len(inferred_graph.adjacency), dtype=bool)
+    inferred_testable[: inferred_graph.n_uids] = (
+        inferred_degrees[: inferred_graph.n_uids] > 0
+    )
+
+    # The entity graph is BIPARTITE -- entities touch attribute nodes, never each other --
+    # so an edge statistic on its raw form finds zero entity-entity edges and returns nan.
+    # Projecting onto entities (two linked when they share an attribute) is what makes the
+    # comparison against Elliptic's unipartite graph meaningful.
+    from core.elliptic import project_bipartite
+
+    projected = project_bipartite(inferred_graph.adjacency, inferred_graph.n_uids)
+    projected_testable = np.array([len(n) > 0 for n in projected], dtype=bool)
+
+    print("\nIEEE-CIS (inferred entity graph, projected onto entities):")
+    inferred_homophily = label_homophily_test(
+        projected, padded[: inferred_graph.n_uids], projected_testable
+    )
+    for line in inferred_homophily.summary_lines():
+        print(line)
+
+    print()
+    print(f"  Elliptic  z = {elliptic_homophily.z_score:+.1f}")
+    print(f"  IEEE-CIS  z = {inferred_homophily.z_score:+.1f}")
+    if elliptic_homophily.z_score > 3 and inferred_homophily.z_score > 3:
+        print("  -> Illicit activity clusters beyond chance on BOTH graphs, including the")
+        print("     one whose edges are observed rather than inferred. The structural")
+        print("     finding is not an artifact of the uid fingerprint heuristic.")
+    elif elliptic_homophily.z_score <= 3:
+        print("  -> No clustering on the OBSERVED graph. That is awkward for the project's")
+        print("     structural claim and is reported as prominently as the negative result.")
+
+    banner("Graph quality: inferred vs observed")
+    print("Measures how much the fingerprint heuristic distorts structure -- something the")
+    print("README previously asserted rather than measured.\n")
+
+    observed = describe_graph("Elliptic (observed)", elliptic.adjacency)
+    inferred = describe_graph("IEEE-CIS (inferred)", inferred_graph.adjacency)
+
+    for shape in (inferred, observed):
+        print(f"{shape.name}")
+        for line in shape.summary_lines():
+            print(line)
+        print()
+
+    print("  The comparison is not like-for-like and the difference is the point: one graph")
+    print("  is a set of accounts guessed to be the same actor, the other is money that")
+    print("  demonstrably moved. A replication across both is evidence that illicit")
+    print("  activity clusters structurally -- NOT that the entity graph is correct.")
+
+
 def stage_calibration(df: pd.DataFrame | None = None) -> None:
     """Are the predicted probabilities trustworthy AS probabilities?
 
@@ -843,6 +977,8 @@ def main() -> int:
         stage_cost()
     elif args.stage == "drift":
         stage_drift()
+    elif args.stage == "elliptic":
+        stage_elliptic()
     elif args.stage == "calibration":
         stage_calibration()
     elif args.stage == "narrate":

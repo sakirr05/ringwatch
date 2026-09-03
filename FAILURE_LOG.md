@@ -118,6 +118,37 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-04 15:40] — A z-score of exactly zero that meant "no power", not "no effect"
+
+- **Symptom:** Running the project's own `ring_concentration_test` on Elliptic's observed
+  graph returned **z = +0.0**: 0 all-illicit components observed against a null of
+  0.0 ± 0.0. Read at face value, illicit activity does not cluster on a real transaction
+  graph — which would have been a serious result against the project's central structural
+  claim, and I very nearly wrote it up as one.
+- **Diagnosis:** The statistic counts components in which *every* labelled member is
+  illicit. That works on IEEE-CIS, where hub suppression keeps components around five
+  entities and "all of them" is an achievable event. Elliptic's transaction-flow graph
+  percolates: **49 components averaging 950 labelled members**, the largest 7,880. No
+  component there *could* be all-illicit, so the observed count is zero, the null is zero,
+  and the z-score is 0/0. The test had no power at all. A null result and an untestable
+  hypothesis look identical in that number, and only the component-size distribution
+  distinguishes them.
+- **Fix:** A statistic whose unit is the **edge** rather than the component — the share of
+  labelled-labelled edges joining two illicit nodes, against a null that shuffles labels
+  with topology held fixed. It works at any component size. Run on both graphs:
+  **Elliptic z = +24.9, IEEE-CIS z = +17.0.** The clustering is real on both, and the
+  original z = 0 was an artifact of the wrong measuring instrument.
+
+  A second, smaller trap surfaced immediately after: the same edge statistic on RingWatch's
+  graph returned `nan`, because that graph is **bipartite** — entities touch attribute
+  nodes and never each other, so there are no entity-entity edges to count. It had to be
+  projected onto entities first. That one at least failed loudly rather than returning a
+  plausible wrong number.
+
+  Both are pinned by tests, including one that asserts the component statistic *is*
+  degenerate on a percolated graph, so the reason for having two statistics cannot be
+  forgotten later and quietly reverted.
+
 ## [2026-09-04 13:15] — I found a confound, "corrected" it wrongly, and had to catch that too
 
 - **Symptom:** Windowed drift analysis showed AUC-PR rising **+23.4%** across the held-out

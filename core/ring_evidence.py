@@ -81,6 +81,103 @@ class RingEvidence:
         ]
 
 
+@dataclass
+class HomophilyEvidence:
+    """Edge-level clustering: do illicit nodes neighbour illicit nodes beyond chance?"""
+
+    labelled_edges: int
+    illicit_illicit_edges: int
+    observed_rate: float
+    null_mean: float
+    null_std: float
+    z_score: float
+
+    def summary_lines(self) -> list[str]:
+        return [
+            f"  edges between labelled nodes  {self.labelled_edges:,}",
+            f"  illicit-illicit edges         {self.illicit_illicit_edges:,}",
+            f"  observed rate                 {self.observed_rate:.4f}",
+            f"  permutation null              {self.null_mean:.4f} +/- {self.null_std:.4f}"
+            f"  (n={N_PERMUTATIONS})",
+            f"  z-score                       {self.z_score:+.1f}",
+        ]
+
+
+def label_homophily_test(
+    adjacency: list[list[int]],
+    labels: np.ndarray,
+    testable: np.ndarray,
+    n_permutations: int = N_PERMUTATIONS,
+    seed: int = PERMUTATION_SEED,
+) -> HomophilyEvidence:
+    """Do illicit nodes sit next to illicit nodes more than chance allows?
+
+    WHY THIS EXISTS ALONGSIDE `ring_concentration_test`
+    ----------------------------------------------------
+    The component statistic counts components in which EVERY labelled member is illicit.
+    That is a good statistic when components are small -- IEEE-CIS averages about five
+    entities, so "all of them" is an achievable and meaningful event.
+
+    It is **degenerate on a percolated graph**. Elliptic's observed transaction-flow graph
+    has 49 components averaging 4,158 labelled members; no component there could be
+    all-illicit, and the permutation null predicts none either. The result is 0 against
+    0 +/- 0, which reads as z = 0 and looks like a clean null while actually meaning the
+    test had no power at all. Reporting that as "no concentration" would have been a false
+    negative dressed as a finding.
+
+    This statistic works at any component size because its unit is the EDGE, not the
+    component: the share of labelled-to-labelled edges that join two illicit nodes,
+    compared against shuffling the labels across testable nodes with the topology held
+    fixed. On a graph where clustering is real, illicit nodes adjoin each other more often
+    than a shuffle produces.
+    """
+    labels = np.asarray(labels).astype(int)
+    testable = np.asarray(testable, dtype=bool)
+
+    # Every edge with both endpoints labelled, deduplicated.
+    pairs = [
+        (node, neighbour)
+        for node, neighbours in enumerate(adjacency)
+        if testable[node]
+        for neighbour in neighbours
+        if neighbour > node and testable[neighbour]
+    ]
+    if not pairs:
+        return HomophilyEvidence(0, 0, float("nan"), float("nan"), float("nan"), float("nan"))
+
+    left = np.array([a for a, _ in pairs], dtype=np.int64)
+    right = np.array([b for _, b in pairs], dtype=np.int64)
+
+    def illicit_pairs(values: np.ndarray) -> int:
+        return int(np.sum(values[left] & values[right]))
+
+    marks = (labels == 1) & testable
+    observed = illicit_pairs(marks)
+
+    # Shuffle labels across testable nodes, holding the graph fixed. Topology is held
+    # constant so the null isolates label placement rather than graph structure.
+    testable_index = np.flatnonzero(testable)
+    testable_marks = marks[testable_index]
+
+    rng = np.random.default_rng(seed)
+    null = np.empty(n_permutations, dtype=np.float64)
+    shuffled = np.zeros(len(labels), dtype=bool)
+    for i in range(n_permutations):
+        shuffled[:] = False
+        shuffled[testable_index] = rng.permutation(testable_marks)
+        null[i] = illicit_pairs(shuffled)
+
+    std = float(null.std())
+    return HomophilyEvidence(
+        labelled_edges=len(pairs),
+        illicit_illicit_edges=observed,
+        observed_rate=observed / len(pairs),
+        null_mean=float(null.mean()) / len(pairs),
+        null_std=std / len(pairs),
+        z_score=float((observed - null.mean()) / (std + 1e-9)),
+    )
+
+
 def ring_concentration_test(
     component_labels: np.ndarray,
     entity_fraud: np.ndarray,
