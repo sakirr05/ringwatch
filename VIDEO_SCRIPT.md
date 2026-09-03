@@ -219,9 +219,9 @@ Scroll the README limitations section.
 > capability to."
 
 > "Everything reproduces from a clean clone: fetch the data, run the pipeline, get these
-> numbers. 213 tests covering the temporal split, the graph algorithms against networkx, the
-> LLM schema and its number-provenance guard, the webhook's signature and idempotency, and
-> the import boundaries. Thanks for watching."
+> numbers. 312 tests covering the temporal split, the graph algorithms against networkx, the
+> LLM schema and its number-provenance guard, the webhook's signature and idempotency, the
+> provider fallback, and the import boundaries. Thanks for watching."
 
 ---
 

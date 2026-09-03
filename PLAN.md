@@ -183,7 +183,7 @@ be fabricated. The two honest, defensible claims are:
 - [x] README: problem · architecture · deployment · metrics · ground-truth caveat · detection-only · limitations
 - [x] `FAILURE_LOG.md` with real entries (pivot, data access, pandas 3.0 dtype, unshippable threshold, the failed hypothesis, cluster-scope bug)
 - [x] `VIDEO_SCRIPT.md` for the 5-minute pitch
-- [x] Tests: temporal-split correctness, graph metrics vs networkx, ring-concentration statistic, LLM JSON schema, number-provenance guard, AI/determinism import boundary — **100 tests**
+- [x] Tests: temporal-split correctness, graph metrics vs networkx, ring-concentration statistic, LLM JSON schema, number-provenance guard, AI/determinism import boundary — **100 tests at this phase** (312 as of the final build)
 
 - [x] **Real LLM narratives** — 11/12 validated against live Gemini, 1
       `NARRATIVE_UNAVAILABLE` from a genuine timeout. Number-provenance guard held on all
