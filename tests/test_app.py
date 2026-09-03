@@ -352,3 +352,69 @@ def test_each_printed_draft_starts_on_its_own_page(client):
     print_css = html[html.index("@media print"):]
     assert "page-break-before: always" in print_css
     assert "page-break-inside: avoid" in print_css
+
+
+# --------------------------------------------------------------------------
+# palette contrast
+# --------------------------------------------------------------------------
+
+
+def _relative_luminance(hex_colour: str) -> float:
+    raw = hex_colour.lstrip("#")
+    channels = [int(raw[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    linear = [
+        c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels
+    ]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def contrast_ratio(foreground: str, background: str) -> float:
+    a, b = _relative_luminance(foreground), _relative_luminance(background)
+    lighter, darker = max(a, b), min(a, b)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def test_light_palette_meets_wcag_aa():
+    """The palette was deliberately lightened; this stops it going too far.
+
+    Body text moved from roughly 15:1 to 9:1 against its ground, which reads much softer
+    and is still about twice the WCAG AA floor. Four colours failed on the first pass at
+    those lighter values — the label grey, and the three tag colours — and were solved back
+    up rather than eyeballed. Pinning the ratios means a later "make it a bit lighter
+    still" cannot quietly cross the accessibility line.
+
+    Values are duplicated from the template on purpose: if someone edits the CSS without
+    updating this list, the two drift and the mismatch test below fails.
+    """
+    pairs = [
+        ("body text on page", "#3a4560", "#fafcfe", 4.5),
+        ("body text on panel", "#3a4560", "#ffffff", 4.5),
+        ("muted text", "#6b7691", "#ffffff", 4.5),
+        ("faint labels", "#8890a2", "#ffffff", 3.0),
+        ("links", "#2f74c8", "#ffffff", 4.5),
+        ("masthead heading", "#2b3a5e", "#e9f1fb", 4.5),
+        ("masthead tagline", "#5a6885", "#e9f1fb", 4.5),
+        ("deterministic tag", "#287b5d", "#f0faf5", 4.5),
+        ("narrative tag", "#506da2", "#f4f7fd", 4.5),
+        ("warning tag", "#a1574c", "#fdf4f2", 4.5),
+    ]
+    failures = [
+        f"{name}: {contrast_ratio(fg, bg):.2f}:1 < {minimum}"
+        for name, fg, bg, minimum in pairs
+        if contrast_ratio(fg, bg) < minimum
+    ]
+    assert not failures, "contrast below WCAG AA -- " + "; ".join(failures)
+
+
+def test_palette_tokens_in_the_template_match_the_tested_values(client):
+    """Guard against the CSS and this test drifting apart."""
+    html = client.get("/").text
+    for token, value in (
+        ("--ink", "#3a4560"),
+        ("--muted", "#6b7691"),
+        ("--faint", "#8890a2"),
+        ("--det", "#287b5d"),
+        ("--ai", "#506da2"),
+        ("--warn", "#a1574c"),
+    ):
+        assert f"{token}: {value};" in html, f"{token} changed without updating the test"

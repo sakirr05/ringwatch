@@ -9,24 +9,28 @@
    near-white grounds. This is a submission for their buildathon, so it reads in their
    visual language. No logo, no marks, no claim of affiliation. */
 :root {
-  --navy: #0d1b3e;
-  --navy-2: #16265a;
-  --accent: #3395ff;
-  --accent-2: #1f6fd6;
-  --accent-bg: #eaf3ff;
-  --ink: #16203a;
-  --muted: #55607a;
-  --faint: #8792ab;
-  --rule: #e2e9f4;
-  --bg: #f5f8fd;
+  /* Softened deliberately. Body text sits around 9:1 against its ground rather than the
+     14:1 it started at -- comfortably past WCAG AA (4.5:1) while reading much lighter.
+     Ratios are asserted in tests/test_app.py so a later tweak cannot quietly cross the
+     accessibility line. */
+  --navy: #2c3a5c;
+  --navy-2: #3d4d72;
+  --accent: #63a9ff;
+  --accent-2: #2f74c8;
+  --accent-bg: #f0f6ff;
+  --ink: #3a4560;
+  --muted: #6b7691;
+  --faint: #8890a2;
+  --rule: #e9eff7;
+  --bg: #fafcfe;
   --panel: #ffffff;
-  --det: #0a7d55;
-  --det-bg: #e8f7f0;
-  --ai: #3d5a99;
-  --ai-bg: #eef2fb;
-  --warn: #c0392b;
-  --warn-bg: #fdeeec;
-  --shadow: 0 1px 2px rgba(13,27,62,.06), 0 4px 16px rgba(13,27,62,.05);
+  --det: #287b5d;
+  --det-bg: #f0faf5;
+  --ai: #506da2;
+  --ai-bg: #f4f7fd;
+  --warn: #a1574c;
+  --warn-bg: #fdf4f2;
+  --shadow: 0 1px 2px rgba(44,58,92,.035), 0 3px 12px rgba(44,58,92,.035);
   --radius: 10px;
 }
 @media (prefers-color-scheme: dark) {
@@ -49,17 +53,18 @@ body {
 }
 
 /* ---- masthead ---- */
-.masthead { background: linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 100%);
-  color: #fff; padding: 3rem 1.5rem 2.6rem; }
+.masthead { background: linear-gradient(160deg, #eef5fd 0%, #e4eefb 100%);
+  color: var(--navy); padding: 3rem 1.5rem 2.6rem;
+  border-bottom: 1px solid var(--rule); }
 .masthead .inner { max-width: 900px; margin: 0 auto; }
 .masthead h1 { font-size: 2.15rem; line-height: 1.15; margin: 0 0 .5rem;
-  letter-spacing: -.03em; color: #fff; }
-.masthead .tagline { color: #b9c9e8; font-size: 1.02rem; margin: 0 0 1.2rem; max-width: 46rem; }
+  letter-spacing: -.03em; color: #2b3a5e; }
+.masthead .tagline { color: #5a6885; font-size: 1.02rem; margin: 0 0 1.2rem; max-width: 46rem; }
 .masthead .chips { display: flex; gap: .5rem; flex-wrap: wrap; }
-.chip { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16);
-  color: #dce7fa; font-size: .76rem; padding: .28rem .6rem; border-radius: 999px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.chip.live::before { content: "●"; color: #4ade80; margin-right: .35rem; font-size: .7em;
+.chip { background: rgba(255,255,255,.72); border: 1px solid #d5e3f6;
+  color: #52618180; color: #526181; font-size: .76rem; padding: .28rem .6rem;
+  border-radius: 999px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.chip.live::before { content: "●"; color: #3fae76; margin-right: .35rem; font-size: .7em;
   vertical-align: 1px; }
 
 .wrap { max-width: 900px; margin: 0 auto; padding: 2.2rem 1.5rem 6rem; }
@@ -95,7 +100,7 @@ th:first-child, td:first-child { text-align: left; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover td { background: var(--accent-bg); }
 thead th { font-size: .71rem; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--faint); font-weight: 650; background: var(--bg); }
+  color: var(--faint); font-weight: 650; background: #f6f9fd; }
 td.num, th.num { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 tr.is-baseline td { font-weight: 650; }
 tr.is-worse td { color: var(--warn); }
@@ -146,7 +151,7 @@ figcaption { font-size: .84rem; color: var(--muted); margin-top: .6rem; }
 .graphwrap { display: grid; grid-template-columns: 200px 1fr; gap: 1.1rem;
   align-items: center; margin: .85rem 0; }
 @media (max-width: 600px) { .graphwrap { grid-template-columns: 1fr; } }
-.cgraph { width: 200px; height: 200px; display: block; background: var(--bg);
+.cgraph { width: 200px; height: 200px; display: block; background: #f6f9fd;
   border: 1px solid var(--rule); border-radius: var(--radius); }
 .gcap { margin: 0; font-size: .82rem; }
 .ge { stroke: var(--rule); stroke-width: .5; transition: stroke .12s, stroke-width .12s; }
