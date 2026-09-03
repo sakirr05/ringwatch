@@ -401,6 +401,61 @@ trained model does not.** Reporting that is more useful than quietly displaying 
 that means nothing — and stating it is the same discipline as reporting the negative
 ablation above.
 
+## Drift across the held-out period — and a metric that lies about it
+
+The model trains once on the first 141 days and is evaluated on the next 42. A single
+aggregate score hides whether performance holds up. `python run.py --stage drift` cuts the
+held-out period into six calendar windows and measures each.
+
+| window | days | rows | fraud | prevalence | AUC-PR | AUC-ROC | ROC 95% CI | ECE |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 141–148 | 18,525 | 636 | 3.43% | 0.4523 | 0.8876 | [0.875, 0.901] | 0.0138 |
+| 2 | 148–155 | 21,360 | 662 | 3.10% | 0.5609 | 0.9055 | [0.890, 0.920] | 0.0082 |
+| 3 | 155–162 | 19,697 | 562 | 2.85% | 0.4821 | 0.8923 | [0.875, 0.911] | 0.0057 |
+| 4 | 162–169 | 21,020 | 736 | 3.50% | 0.5037 | 0.8910 | [0.878, 0.904] | 0.0103 |
+| 5 | 169–176 | 19,824 | 724 | 3.65% | 0.5503 | 0.8977 | [0.884, 0.910] | 0.0115 |
+| 6 | 176–183 | 17,682 | 744 | 4.21% | 0.5582 | 0.8965 | [0.883, 0.910] | 0.0146 |
+
+### The finding: no model drift, but real label drift
+
+**Ranking quality does not change.** AUC-ROC sits between 0.8876 and 0.9055 across every
+window, and the first and last intervals overlap comfortably. **Feature distributions do
+not move either** — the largest PSI anywhere is 0.0531, well inside the conventional
+"stable" band below 0.10.
+
+**What does move is the base rate.** Fraud prevalence climbs from 3.43% to 4.21%, +22.6%
+across the period. That is genuine label drift in a 42-day window, and it is the thing a
+deployed system would need to react to.
+
+### The metric that would have lied, and the correction that also lied
+
+Raw AUC-PR rises **+23.4%** across the same period — 0.4523 to 0.5582, with intervals that
+do *not* overlap. Read naively, "the model improved 23% over the held-out period."
+
+It didn't. **AUC-PR's floor is prevalence**, so it moves with the base rate whether or not
+the model changed, and prevalence moved +22.6%. The two track each other almost exactly.
+
+The obvious correction — divide AP by prevalence — is *also* wrong, which took a controlled
+experiment to establish rather than an argument. With a fixed-quality ranker and prevalence
+rising 2% → 6%:
+
+| ranker | AP range | lift = AP/prevalence |
+|---|---|---|
+| weak | 0.03–0.07 | 1.3× → 1.2× (flat — ratio works) |
+| strong | 0.60–0.75 | 29.9× → 12.5× (**ratio badly over-corrects**) |
+
+The ratio only holds at low AP. This project runs at ~0.5, squarely in the regime where it
+fails. So the trend verdict uses **AUC-ROC**, which is invariant to class balance by
+construction rather than by approximation. `core/drift.py` reports lift for context but
+never uses it to decide anything.
+
+PSI is hand-implemented and validated against `scipy.stats.entropy` via the identity
+**PSI = Jeffreys divergence = KL(a‖b) + KL(b‖a)** — there is no PSI in any standard
+library, so that identity is what makes an independent oracle possible at all.
+
+**This is a diagnostic, not a retraining pipeline.** Nothing here refits a model or adapts
+a threshold.
+
 ## Cost-sensitive training: it made things worse, and the reason is measurable
 
 Cost asymmetry previously entered only at threshold selection. This makes the *model* carry

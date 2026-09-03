@@ -60,6 +60,12 @@ from core.centrality import (
 )
 from core.clusters import build_cluster_evidence
 from core.costs import cost_weights, weight_summary
+from core.drift import (
+    drift_report,
+    psi_verdict,
+    ranking_quality_trend,
+    trend_is_distinguishable_from_noise,
+)
 from core.model import train_model
 from core.ring_evidence import ring_concentration_test
 from core.split import split_summary, temporal_split
@@ -67,8 +73,8 @@ from core.split import split_summary, temporal_split
 from ai.narrate import narrate_all
 
 STAGES = (
-    "data", "baseline", "graph", "ablation", "value", "cost", "calibration",
-    "narrate", "all",
+    "data", "baseline", "graph", "ablation", "value", "cost", "drift",
+    "calibration", "narrate", "all",
 )
 
 
@@ -634,6 +640,79 @@ def stage_value(df: pd.DataFrame | None = None) -> None:
         print(line)
 
 
+def stage_drift(df: pd.DataFrame | None = None) -> None:
+    """Does performance hold up across the held-out period, or decay?
+
+    A single aggregate score over 42 days hides whether the model is steady or degrading.
+    This cuts the period into calendar windows and measures each. It is a diagnostic, not
+    a retraining pipeline -- nothing here refits anything.
+    """
+    banner("STAGE: drift across the held-out period")
+    df = df if df is not None else load_merged()
+    train, test = temporal_split(df)
+    train, test = add_time_features(train), add_time_features(test)
+
+    score_path = CACHE_DIR / "scores_baseline.npy"
+    if not score_path.exists():
+        print("No cached baseline scores. Run: python run.py --stage ablation")
+        return
+    scores = np.load(score_path)
+
+    # PSI is measured on the features the model actually leans on, taken by gain from the
+    # trained booster rather than chosen by hand -- otherwise the choice of features is
+    # itself a place to accidentally select a flattering story.
+    import lightgbm as lgb
+
+    booster = lgb.Booster(model_file=str(CACHE_DIR / "model_baseline.txt"))
+    gains = sorted(
+        zip(booster.feature_name(), booster.feature_importance("gain")),
+        key=lambda pair: -pair[1],
+    )
+    numeric = [
+        name
+        for name, _ in gains
+        if name in test.columns and pd.api.types.is_numeric_dtype(test[name])
+    ][:8]
+    print(f"PSI measured on the 8 highest-gain numeric features: {', '.join(numeric)}\n")
+
+    windows = drift_report(test, scores, train, numeric, n_windows=6)
+
+    print(f"{'win':<5} {'days':<12} {'rows':>7} {'fraud':>6} {'prev':>7} "
+          f"{'AUC-PR':>8} {'AUC-ROC':>9} {'ROC 95% CI':<20} {'ECE':>7} {'worst PSI':>20}")
+    for w in windows:
+        name, value = w.worst_psi_feature
+        ci = f"[{w.auc_roc_ci[0]:.3f}, {w.auc_roc_ci[1]:.3f}]"
+        print(f"{w.index:<5} {w.start_day:>4.0f}-{w.end_day:<7.0f} {w.n_rows:>7,} "
+              f"{w.n_fraud:>6,} {100*w.prevalence:>6.2f}% {w.auc_pr:>8.4f} "
+              f"{w.auc_roc:>9.4f} {ci:<20} {w.ece:>7.4f} {name[:10]:>10} {value:>8.4f}")
+
+    prevalences = [w.prevalence for w in windows]
+    aps = [w.auc_pr for w in windows]
+    print(f"\n  prevalence moves {100*prevalences[0]:.2f}% -> {100*prevalences[-1]:.2f}% "
+          f"({100*(prevalences[-1]/prevalences[0]-1):+.1f}%), and AUC-PR moves "
+          f"{aps[0]:.4f} -> {aps[-1]:.4f} ({100*(aps[-1]/aps[0]-1):+.1f}%).")
+    print("  Those track each other because AUC-PR's floor IS prevalence. Reading the")
+    print("  second number as 'the model improved' would be reading the first one.")
+
+    print()
+    if ranking_quality_trend(windows):
+        print("  -> AUC-ROC intervals do NOT overlap: ranking quality genuinely changed.")
+    else:
+        print("  -> AUC-ROC is FLAT across the period (intervals overlap), so ranking")
+        print("     quality did not measurably change. AUC-ROC is invariant to class")
+        print("     balance by construction, which is why it -- not AUC-PR, and not")
+        print("     AP/prevalence -- answers the question 'did the model change?'.")
+    if trend_is_distinguishable_from_noise(windows):
+        print("     (The raw AUC-PR comparison DOES fire, and is confounded by prevalence.)")
+
+    worst = max(windows, key=lambda w: max(w.psi.values()) if w.psi else 0)
+    name, value = worst.worst_psi_feature
+    print(f"\n  Largest feature shift anywhere: {name} in window {worst.index}, "
+          f"PSI {value:.4f} ({psi_verdict(value)})")
+    print("  PSI bands (<0.1 stable, <0.25 moderate) are credit-scoring rules of thumb,")
+    print("  not thresholds with a theoretical basis.")
+
+
 def stage_calibration(df: pd.DataFrame | None = None) -> None:
     """Are the predicted probabilities trustworthy AS probabilities?
 
@@ -762,6 +841,8 @@ def main() -> int:
         stage_value()
     elif args.stage == "cost":
         stage_cost()
+    elif args.stage == "drift":
+        stage_drift()
     elif args.stage == "calibration":
         stage_calibration()
     elif args.stage == "narrate":
@@ -773,6 +854,7 @@ def main() -> int:
         stage_ablation(df)
         stage_value(df)
         stage_cost(df)
+        stage_drift(df)
         stage_calibration(df)
         stage_narrate(df)
     return 0

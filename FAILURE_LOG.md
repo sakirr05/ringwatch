@@ -118,6 +118,40 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-04 13:15] — I found a confound, "corrected" it wrongly, and had to catch that too
+
+- **Symptom:** Windowed drift analysis showed AUC-PR rising **+23.4%** across the held-out
+  period, with the first and last bootstrap intervals not overlapping. Read at face value:
+  the model improved by a quarter over 42 days, which is not a thing that happens to a
+  model that never retrains.
+- **Diagnosis, in two wrong steps and one right one.**
+  *First:* AUC-PR's floor is prevalence, and fraud prevalence rose **+22.6%** over the same
+  window (3.43% → 4.21%). The two numbers track almost exactly, so the "improvement" was
+  the base rate moving.
+  *Second, and this is the part I nearly shipped:* I "fixed" it by dividing AP by
+  prevalence, got a satisfyingly flat 13.2× → 13.3×, and wrote it up as the corrected
+  finding. Then a test I had written for the fixture failed — and it was right to. AP
+  scales with prevalence only when AP is **small**. I measured it on synthetic data with a
+  fixed-quality ranker as prevalence went 2% → 6%: a weak ranker's lift stayed flat
+  (1.3× → 1.2×), but a strong one's collapsed (29.9× → 12.5×). This project runs at AP ≈
+  0.5, in the regime where the ratio over-corrects badly. My correction was as wrong as the
+  raw number, just wrong in a more sophisticated way.
+- **Fix:** Use a metric that is prevalence-invariant **by construction rather than by
+  approximation** — AUC-ROC. It is flat across every window (0.8876 to 0.9055, intervals
+  overlapping), so ranking quality genuinely did not change. The ratio-based
+  `prevalence_adjusted_trend` and its `lift_ci` were deleted rather than patched;
+  `lift_over_prevalence` survives as a reported number with a docstring stating the regime
+  where it is meaningless, and the trend verdict never consults it.
+
+  The honest result is more interesting than either wrong version: **no model drift, no
+  feature drift (max PSI 0.0531), but real label drift** — the fraud rate itself moves
+  22.6% inside a 42-day window. That is what a deployed system would actually have to
+  respond to.
+
+  Worth recording that the thing which caught the bad correction was a test written to
+  check a fixture, not a review of the reasoning. I had already written the wrong version
+  into a docstring as though it were established.
+
 ## [2026-09-04 10:30] — Cost-sensitive training backfired, and the diagnostic said why
 
 - **Symptom:** Weighting each training row by its misclassification cost made the model
