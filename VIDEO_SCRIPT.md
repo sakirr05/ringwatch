@@ -19,12 +19,18 @@ that it disconfirmed my own idea three separate times and I kept every one of th
 ## Before recording
 
 ```bash
+source .venv/bin/activate               # FIRST — without it, every command below
+                                        # fails with ModuleNotFoundError: numpy
 python run.py --stage ablation          # warm the model + score caches
 python run.py --stage narrate           # warm the LLM cache — no dead air on camera
 python run.py --stage investigate       # warm the orchestrator cache too
 python scripts/export_results.py        # refresh docs/results.json
-uvicorn app.main:app --port 8000        # leave running
+uvicorn app.main:app --port 8000        # leave running (in a second terminal)
 ```
+
+Your prompt should show `(.venv)` before you run anything else. If you skipped the venv
+entirely, `python3 -m venv .venv && source .venv/bin/activate && pip install -r
+requirements.txt` sets it up from scratch.
 
 - [ ] Terminal font large enough to read at 720p
 - [ ] Browser on the live Render URL — **hit it once first** so the free tier is warm

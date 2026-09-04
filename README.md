@@ -1264,6 +1264,10 @@ metric.
 
 ### 3. Run the pipeline
 
+> Returning in a new shell? `source .venv/bin/activate` first — otherwise the very first
+> import fails with `ModuleNotFoundError: No module named 'numpy'`, which looks like a
+> broken install and is just an inactive virtualenv.
+
 ```bash
 python run.py --stage data       # build the Parquet cache, print split statistics
 python run.py --stage graph      # entity graph + ring-concentration test
