@@ -118,6 +118,28 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-05 01:40] — A Dockerfile that built, ran, served traffic, and could not be stopped
+
+- **Symptom:** The image built clean and served every route. Docker printed one warning I
+  was inclined to treat as style advice: `JSONArgsRecommended: JSON arguments recommended
+  for CMD to prevent unintended behavior related to OS signals`.
+- **Diagnosis:** It is not style advice. `CMD uvicorn app.main:app ...` in shell form runs
+  under `/bin/sh -c`, so the shell is PID 1 and uvicorn is its child. SIGTERM goes to PID 1,
+  `sh` does not forward it, uvicorn never learns it should stop, and the container sits
+  there until Docker's grace period expires and SIGKILL takes it -- cutting any in-flight
+  request off mid-response and exiting 137. On Render, every deploy and every free-tier
+  spin-down goes through exactly that path. The container would have "worked" in every test
+  that only checks whether it answers.
+- **Fix:** `CMD ["sh", "-c", "exec uvicorn ..."]`. The shell is still there to expand
+  `${PORT}`, which platforms that inject a port require, but `exec` replaces it with uvicorn
+  so uvicorn becomes PID 1 and receives signals directly. Measured before and after by
+  timing `docker stop`: **608 ms, exit code 0**, with `Application shutdown complete` in the
+  log. A test asserts `exec uvicorn` is in the CMD, because the shell form is the one
+  anybody would write from memory.
+- **Worth stating:** I only saw this because I actually built and ran the image. A Dockerfile
+  that is committed and never executed passes code review, passes any test that curls it,
+  and is broken in the one way that only shows up in production.
+
 ## [2026-09-05 00:15] — Two different 12s, and I nearly badged the wrong one
 
 - **Symptom:** The plan for the cluster grid asked for a "fully-fraudulent flag" per card.

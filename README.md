@@ -1207,6 +1207,75 @@ gitignored, and the deployed instance needs the booster for its clearly-labelled
 out-of-distribution scoring track. If it is absent the app still starts and that track
 reports "unavailable" — nothing else is affected.
 
+### Running it in a container
+
+```bash
+docker build -t ringwatch .
+docker run --rm -p 8000:8000 ringwatch
+# then: http://localhost:8000  ·  /docs  ·  /health  ·  /ready
+```
+
+Built and run as part of this work rather than shipped untested. Verified in the actual
+container: `/`, `/docs`, `/health`, `/ready`, `/api/results` and `/api/score` all 200;
+the dashboard renders in 70 ms; `docker stop` returns in **608 ms with exit code 0**.
+
+That last number is a fix, not a boast. `CMD uvicorn …` in shell form leaves `sh` as PID 1,
+so SIGTERM never reaches uvicorn and every stop waits out the full grace period before a
+SIGKILL cuts requests off mid-flight. `CMD ["sh", "-c", "exec uvicorn …"]` keeps `${PORT}`
+expansion — which platforms that inject a port need — while making uvicorn PID 1. Docker's
+own `JSONArgsRecommended` warning points at exactly this, and it is asserted in
+`tests/test_docker.py`.
+
+Two other details worth naming:
+
+- **`.dockerignore` keeps `data/` out**, so the 829 MB dataset and model cache are not in
+  the image. "The deployed service cannot recompute a published metric" is enforced by
+  absence, the same way `.gitignore` enforces it for the repo. A test asserts the exclusion,
+  and the live test checks *inside* the running container rather than inferring it.
+- **`requirements-web.txt` is the runtime subset** — scikit-learn, matplotlib, pyarrow and
+  networkx are analysis-only and excluded (682 MB image instead of ~1.2 GB). It is asserted
+  to be a strict subset of `requirements.txt` with identical pins, and
+  `test_the_runtime_import_closure_is_covered_by_the_web_requirements` walks the real
+  import graph — including the lazy imports — so a new dependency cannot break the image
+  without failing a test first.
+
+The image build and run are gated behind an env var so a 90-second build is not charged to
+every `pytest -q`:
+
+```bash
+RINGWATCH_DOCKER_TESTS=1 pytest tests/test_docker.py
+```
+
+The static checks — the ones that catch the realistic regression — run unconditionally.
+
+### The scoring endpoint, and what it is honestly worth
+
+`POST /api/score` takes a Razorpay payment entity (or a `{"payment": …}` wrapper, or a full
+webhook body — the same payload the webhook accepts) and returns a score. **It is a
+demonstration of the ingestion path, not a fraud assessment**, and the response says so in
+its own body rather than in documentation the caller may never open.
+
+The measured reason: the model expects **433 features and a Razorpay payload supplies 3** —
+`TransactionAmt`, `tx_hour`, `tx_dayofweek`. That is **0.69% coverage**; the other 430 are
+imputed as missing. `card1`, `addr1`, `C1`–`C14`, `D1`–`D15`, `M1`–`M9` and `V1`–`V339` are
+Vesta-internal engineered features with no counterpart in any processor's webhook, and
+`card4`/`card6` are deliberately *not* mapped even though they look like clean matches —
+LightGBM's categorical codes are fixed at training time, so a mismatched ordering silently
+maps "visa" onto whatever occupied that code, which is a wrong number that looks plausible.
+
+```json
+{
+  "score": 0.0041, "features_present": 3, "features_total": 433,
+  "coverage_pct": 0.69, "is_fraud_assessment": false,
+  "model_trained_on": "IEEE-CIS (US e-commerce, Vesta)"
+}
+```
+
+Quantifying how little transfers is a more useful thing to publish than the score is. The
+route uses a lazy import for the same reason the webhook's background task does, which is
+why `test_app_modules_do_not_directly_import_modelling_libraries` still passes with it in
+place: first call ~1.6 s while the booster loads, ~22 ms warm.
+
 ### Cold start: what was fixed, and what cannot be
 
 The free tier spins the instance down after ~15 minutes idle, and the next request waits

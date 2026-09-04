@@ -1,0 +1,29 @@
+# The 829 MB of raw data and model cache must never enter the image. The deployed service
+# genuinely cannot recompute any published number, and that guarantee is enforced by the
+# data simply not being there -- the same way .gitignore enforces it for the repository.
+data/
+*.parquet
+*.npy
+
+# Build/test scaffolding the container has no use for.
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+legacy/
+scripts/
+notebooks/
+
+# Secrets. .env is gitignored too, but an image built from a working tree would otherwise
+# pick it up -- the one path by which a key could escape into a distributable artifact.
+.env
+.env.*
+!.env.example
+
+# Docs and planning that do not affect the running service.
+*.md
+!README.md

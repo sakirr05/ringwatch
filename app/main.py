@@ -296,6 +296,111 @@ def ready() -> JSONResponse:
     )
 
 
+# ---------------------------------------------------------------------------
+# DEMONSTRATION SCORING ENDPOINT
+#
+# This is the one route that runs a model, and it is deliberately the most heavily
+# qualified thing in the service. The booster was trained on IEEE-CIS -- US e-commerce
+# data with 433 Vesta-engineered features -- and a Razorpay payment payload supplies 3 of
+# them. LightGBM will happily impute 430 missing values and return a number, and that
+# number is not an assessment of the transaction.
+#
+# So the endpoint exists to prove the ingestion path works end to end and to MEASURE how
+# little transfers, which is a more useful thing to publish than a score would be. The
+# caveat is returned in the body of every response rather than documented beside it,
+# because a caveat you have to go and look up is one a caller will not see.
+#
+# Nothing here can alter a reported metric: it writes nothing, and docs/results.json is
+# produced offline by scripts/export_results.py.
+# ---------------------------------------------------------------------------
+
+MAX_SCORE_BODY_BYTES = 64 * 1024
+
+
+@app.post("/api/score")
+async def api_score(request: Request) -> JSONResponse:
+    """Score one Razorpay payment entity. **A demonstration, not a fraud assessment.**
+
+    Send either a payment entity directly, or a `{"payment": {...}}` wrapper, or a full
+    webhook body (`{"payload": {"payment": {"entity": {...}}}}`) — all three are accepted
+    so the same payload you would send to the webhook works here unchanged.
+
+    ```json
+    {"amount": 250000, "currency": "INR", "method": "card", "international": false}
+    ```
+
+    The response always carries `coverage_pct` and `caveat`. Read them before the score:
+    typical coverage is under 1% of the features the model expects, and a score produced
+    from an almost entirely imputed feature vector describes the model's priors, not this
+    payment. `available: false` means the committed booster is absent, which degrades this
+    route alone.
+    """
+    raw = await request.body()
+    if len(raw) > MAX_SCORE_BODY_BYTES:
+        return JSONResponse(
+            {"error": f"body exceeds {MAX_SCORE_BODY_BYTES} bytes"}, status_code=413
+        )
+
+    try:
+        body = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "body must be a JSON object"}, status_code=400)
+
+    payment = _payment_from(body)
+    if payment is None:
+        return JSONResponse(
+            {
+                "error": "no payment entity found",
+                "expected": (
+                    "a payment entity, or {'payment': {...}}, or a full webhook body "
+                    "{'payload': {'payment': {'entity': {...}}}}"
+                ),
+            },
+            status_code=400,
+        )
+
+    # Local import, exactly as the webhook's background task does it. Keeping LightGBM out
+    # of module scope means the web process still starts fast and stays up if the model
+    # artifact is missing -- and it is why `test_app_modules_do_not_directly_import_
+    # modelling_libraries` still passes with this route in place.
+    from core.demo_score import score_payment
+
+    try:
+        result = score_payment(payment)
+    except Exception as exc:  # noqa: BLE001 - a bad payload must not take the service down
+        return JSONResponse(
+            {"available": False, "reason": f"scoring failed: {exc}"}, status_code=422
+        )
+
+    body_out = result.to_dict()
+    # Said in the payload, not only in the docs. A caller who never reads /docs still gets it.
+    body_out["is_fraud_assessment"] = False
+    body_out["model_trained_on"] = "IEEE-CIS (US e-commerce, Vesta)"
+    return JSONResponse(body_out)
+
+
+def _payment_from(body: dict) -> dict | None:
+    """Accept the three shapes a caller plausibly sends, and nothing else."""
+    payload = body.get("payload")
+    if isinstance(payload, dict):
+        entity = payload.get("payment", {})
+        if isinstance(entity, dict) and isinstance(entity.get("entity"), dict):
+            return entity["entity"]
+
+    inner = body.get("payment")
+    if isinstance(inner, dict):
+        return inner.get("entity") if isinstance(inner.get("entity"), dict) else inner
+
+    # A bare entity: require at least one field the extractor actually reads, so an
+    # arbitrary JSON object is rejected rather than silently scored as all-missing.
+    if any(key in body for key in ("amount", "currency", "method", "international")):
+        return body
+    return None
+
+
 @app.get("/api/results")
 def api_results() -> JSONResponse:
     """The raw artifact, so a reviewer can check the page against its source."""

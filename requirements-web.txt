@@ -1,0 +1,25 @@
+# Runtime dependencies for the container. A strict subset of requirements.txt with
+# identical version specifiers -- tests/test_docker.py asserts both properties, so this
+# file cannot quietly drift from the one Render installs.
+#
+# WHAT IS DELIBERATELY ABSENT, AND WHY IT IS SAFE
+# ------------------------------------------------
+# scikit-learn, matplotlib, pyarrow and networkx are analysis-only. They are used by the
+# ablation, the plots, the Parquet cache and the k-core validation oracle respectively --
+# all of which run locally, none of which the deployed service can perform: it has neither
+# the 683 MB dataset nor the model cache. Excluding them is not an optimisation that
+# weakens the container; it is the dependency list finally matching the architecture.
+#
+# lightgbm, numpy and pandas ARE needed, and only via lazy imports: lightgbm and numpy for
+# the demonstration scorer (/api/score and the webhook's background task), pandas because
+# core.graph imports it for the live entity-graph analysis. None of them is imported at
+# module scope anywhere under app/, which is why the process still starts without them.
+
+fastapi>=0.110
+uvicorn[standard]>=0.27
+jinja2>=3.1
+lightgbm>=4.3
+numpy>=1.26
+pandas>=2.2
+requests>=2.31
+python-dotenv>=1.0
