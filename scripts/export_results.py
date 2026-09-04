@@ -39,7 +39,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from ai.disposition import draft_all  # noqa: E402
 from ai.narrate import narrate_all  # noqa: E402
 from core.calibration import calibration_report  # noqa: E402
-from core.clusters import build_cluster_evidence  # noqa: E402
+from core.clusters import build_cluster_evidence, cluster_outcomes  # noqa: E402
 from core.data import CACHE_DIR, TARGET, load_merged  # noqa: E402
 from core.evaluate import (  # noqa: E402
     MAX_ACCEPTABLE_INSULT_RATE,
@@ -383,6 +383,13 @@ def main() -> int:
         threshold,
         selected_components=selected_components,
     )
+    # How those clusters actually turned out, against labels the engine never used.
+    # Deliberately computed AFTER the evidence and kept in a separate object: the fraud
+    # label must not reach ClusterEvidence, which is what the narrative layer reads.
+    outcomes = cluster_outcomes(
+        test_with_graph, scores["graph_full"], y_true, threshold, selected_components
+    )
+
     narratives = narrate_all(evidence_items)
 
     # The orchestrator runs on case files core/ assembled. It reads them and writes
@@ -397,8 +404,9 @@ def main() -> int:
     full_labels = connected_components(graph.adjacency)
 
     clusters = []
-    for evidence, narrative, case, disposition, component in zip(
-        evidence_items, narratives, case_files, dispositions, selected_components
+    for evidence, narrative, case, disposition, outcome, component in zip(
+        evidence_items, narratives, case_files, dispositions, outcomes,
+        selected_components,
     ):
         clusters.append(
             {
@@ -482,10 +490,42 @@ def main() -> int:
                     # cannot render an ungated recommendation even by mistake.
                     "requires_human_approval": disposition.requires_human_approval,
                 },
+                # Retrospective, for the summary grid. NOT part of the evidence the model
+                # saw -- `all_fraud` means every transaction here carries a fraud label,
+                # which is not the same claim as "this is a verified ring" and must never
+                # be rendered as one.
+                "outcome": {
+                    "transaction_count": outcome.transaction_count,
+                    "fraud_transactions": outcome.fraud_transactions,
+                    "fraud_share": outcome.fraud_share,
+                    "all_fraud": outcome.all_fraud,
+                    "caught": outcome.caught,
+                    "missed": outcome.missed,
+                    "false_alarms": outcome.false_alarms,
+                },
             }
         )
 
     validated = sum(1 for c in clusters if c["narrative"]["status"] == "OK")
+
+    # The one aggregate worth stating: how enriched the flagged clusters are relative to
+    # the base rate. This is a CLUSTER-SURFACING claim, not a predictive-lift claim -- the
+    # ablation above still says the graph does not improve AUC-PR, and these two coexist.
+    cluster_txns = sum(o.transaction_count for o in outcomes)
+    cluster_fraud = sum(o.fraud_transactions for o in outcomes)
+    base_rate = float(y_true.mean())
+    cluster_rate = (cluster_fraud / cluster_txns) if cluster_txns else 0.0
+    outcome_summary = {
+        "clusters": len(outcomes),
+        "transactions": cluster_txns,
+        "fraud_transactions": cluster_fraud,
+        "fraud_share": cluster_rate,
+        "base_rate": base_rate,
+        "enrichment": (cluster_rate / base_rate) if base_rate else 0.0,
+        "all_fraud_clusters": sum(1 for o in outcomes if o.all_fraud),
+        "zero_fraud_clusters": sum(1 for o in outcomes if o.fraud_transactions == 0),
+        "missed_fraud": sum(o.missed for o in outcomes),
+    }
 
     # ---- assemble --------------------------------------------------------
     payload = {
@@ -557,6 +597,7 @@ def main() -> int:
         },
         "calibration": calibration,
         "clusters": clusters,
+        "cluster_outcomes": outcome_summary,
         "narratives_validated": validated,
         "narratives_total": len(clusters),
     }

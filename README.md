@@ -873,13 +873,41 @@ python scripts/benchmark_incremental.py
 
 **IEEE-CIS provides transaction-level fraud labels, not ring-level labels.** RingWatch
 therefore will never claim a metric like "N fraud rings caught" — that number cannot be
-validated against this dataset, and reporting it would be fabrication. The two claims
-this project makes are the two it can actually defend:
+validated against this dataset, and reporting it would be fabrication. The claims this
+project makes are the ones it can actually defend:
 
 1. Fraud-labeled transactions **cluster more densely** in the entity graph than
-   legitimate ones, demonstrated through graph statistics.
-2. Graph-derived features produce a **measured PR-AUC lift** over an identical tabular
-   baseline, demonstrated by ablation on a temporally held-out test set.
+   legitimate ones — z = +8.8 against a label-permutation null, stable across every
+   hub-suppression cap tried.
+2. Graph-derived features produce **no measured AUC-PR lift** over an identical tabular
+   baseline, and `+ k-core` is *significantly worse* (−0.0064, CI [−0.0102, −0.0031]).
+   Measured by ablation on a temporally held-out test set, reported as the headline.
+3. The clusters the engine surfaces are **substantially enriched in labelled fraud**:
+   20 of 41 transactions across the 12 flagged clusters (48.8%) carry a fraud label,
+   against a 3.44% base rate — **14.2×**.
+
+Claim 3 is new in this phase and needs its scope stated precisely, because it is the
+easiest number here to misread:
+
+- **It is not predictive lift.** Claim 2 measured that and found none. Enrichment says the
+  ranked-and-clustered shortlist is worth an analyst's time; it says nothing about the
+  score's accuracy across 118,108 transactions, which is what AUC-PR measures. Both are
+  true simultaneously, and the dashboard says so on the same screen.
+- **It is not a ring count.** 2 of the 12 clusters have *every* transaction labelled fraud.
+  That is a statement about transaction labels, not coordination: three unrelated fraudsters
+  who happen to share an address satisfy it and coordinate nothing. Note that the
+  concentration test also reports **12** all-fraud *components* — a different set entirely,
+  over the 4,935 components of the entity graph rather than these 12 flagged clusters. The
+  coincidence of the two numbers is a trap; badging all twelve clusters "fully fraudulent"
+  was the first thing I tried and it was wrong.
+- **One flagged cluster contains no labelled fraud at all**, and it is shown on the grid
+  with the rest rather than dropped.
+
+The labels used for claim 3 are held-out and were never seen by the engine. They live in a
+`ClusterOutcome` object deliberately separate from `ClusterEvidence`, so the fraud label
+cannot reach the narrative or orchestrator layers — a narrator handed ground truth would
+produce narratives that look accurate for a reason unrelated to the evidence it was given.
+`tests/test_cluster_outcomes.py` asserts that separation.
 
 ## Why AUC-PR and not accuracy
 

@@ -209,6 +209,38 @@ figcaption { font-size: .84rem; color: var(--muted); margin-top: .6rem; }
 .verdict.bad { border-left-color: var(--warn); background: var(--warn-bg); }
 .verdict strong { letter-spacing: .03em; }
 
+/* ---- small multiples: all clusters at a glance ----
+   One card per flagged cluster, same fields in the same place on every card, so the eye
+   compares across them rather than reading each. Clicking a card opens the full evidence
+   panel below, which already carries the hover-to-highlight provenance. */
+.grid-multiples { display: grid; gap: .6rem; margin: .9rem 0 1.2rem;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+.cardlet { text-align: left; font: inherit; cursor: pointer; padding: .6rem .68rem;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 9px;
+  box-shadow: var(--shadow); display: flex; flex-direction: column; gap: .3rem;
+  color: inherit; }
+.cardlet:hover { border-color: var(--accent); background: var(--accent-bg); }
+.cardlet:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cardlet-top { display: flex; align-items: baseline; justify-content: space-between;
+  gap: .4rem; }
+.cardlet-id { font-family: ui-monospace, monospace; font-weight: 650; font-size: .82rem;
+  color: var(--accent-2); }
+.cardlet-risk { font-family: ui-monospace, monospace; font-size: .8rem; color: var(--muted); }
+/* The risk bar is a width, not a metric: max_risk_score is already a 0-1 quantity, so this
+   is a direct rendering of a computed number rather than a rescaling of one. */
+.cardlet-bar { height: 4px; border-radius: 2px; background: var(--rule); overflow: hidden; }
+.cardlet-bar i { display: block; height: 100%; background: var(--accent-2); }
+.cardlet-facts { display: flex; flex-wrap: wrap; gap: .28rem .5rem; font-size: .74rem;
+  color: var(--muted); font-family: ui-monospace, monospace; }
+.cardlet-attrs { font-size: .7rem; color: var(--faint); line-height: 1.35;
+  word-break: break-word; }
+.cardlet-outcome { font-size: .7rem; letter-spacing: .04em; text-transform: uppercase;
+  font-weight: 650; padding: .16rem .38rem; border-radius: 4px; align-self: flex-start; }
+.cardlet-outcome.all { background: var(--warn-bg); color: var(--warn); }
+.cardlet-outcome.some { background: var(--ai-bg); color: var(--ai); }
+.cardlet-outcome.none { background: var(--det-bg); color: var(--det); }
+.cardlet.is-open { border-color: var(--accent-2); box-shadow: 0 0 0 2px var(--accent-bg); }
+
 .cluster { border: 1px solid var(--rule); background: var(--panel); margin: .7rem 0;
   border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .cluster > summary { cursor: pointer; padding: .78rem .95rem; font-size: .9rem;
@@ -378,6 +410,13 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
      chosen result. Panels [A] and [B] above already carry the two figures that matter, and
      the whole curve is in results.json for anyone who wants it. */
   #explorer, #explorer + p, h3 + .sub { display: none !important; }
+
+  /* The small-multiples grid stays: it is a legible contact sheet on paper, and every
+     panel prints in full below it anyway. Buttons flatten to plain bordered cells. */
+  .grid-multiples { grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+  .cardlet { box-shadow: none; border: .5pt solid #666; padding: 2mm; }
+  .cardlet-bar { display: none; }
+  .cardlet-outcome { border: .5pt solid #666; background: #fff !important; color: #000 !important; }
 
   /* The gate prints as a bordered block with the buttons removed -- a printout cannot be
      clicked, and a printed "Approve" button would imply an approval that never happened.
@@ -796,8 +835,76 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
     genuinely ambiguous, not a failure to decide.</p>
   </div>
 
+  {% if r.cluster_outcomes %}
+  {% set co = r.cluster_outcomes %}
+  <h3 style="margin:1.6rem 0 .2rem">All {{ clusters | length }} clusters at a glance</h3>
+  <p class="sub" style="margin:0 0 .5rem">
+    Same fields in the same place on every card · click one to open its full evidence panel
+    · <span class="tag tag-det">computed by core/</span>
+  </p>
+
+  <div class="grid-multiples">
+    {% for c in clusters %}
+    {% set o = c.outcome %}
+    <button type="button" class="cardlet" data-cluster="{{ c.evidence.cluster_id }}"
+            aria-expanded="false">
+      <span class="cardlet-top">
+        <span class="cardlet-id">cluster {{ c.evidence.cluster_id }}</span>
+        <span class="cardlet-risk">{{ "%.3f"|format(c.evidence.max_risk_score) }}</span>
+      </span>
+      <span class="cardlet-bar">
+        <i style="width:{{ "%.1f"|format(c.evidence.max_risk_score * 100) }}%"></i>
+      </span>
+      <span class="cardlet-facts">
+        <span>{{ c.evidence.entity_count }} ent</span>
+        <span>{{ c.evidence.transaction_count }} txn</span>
+        <span>core {{ c.evidence.core_number }}</span>
+        <span>{{ c.evidence.span_days }}d</span>
+      </span>
+      <span class="cardlet-attrs">
+        {%- if c.evidence.shared_attributes == ['indirect_attribute_chain'] -%}
+          indirect chain
+        {%- else -%}
+          {{ c.evidence.shared_attributes | join(' · ') }}
+        {%- endif -%}
+      </span>
+      {% if o %}
+      <span class="cardlet-outcome {% if o.all_fraud %}all{% elif o.fraud_transactions %}some{% else %}none{% endif %}">
+        {%- if o.all_fraud -%}
+          all {{ o.transaction_count }} fraud
+        {%- elif o.fraud_transactions -%}
+          {{ o.fraud_transactions }}/{{ o.transaction_count }} fraud
+        {%- else -%}
+          no fraud
+        {%- endif -%}
+      </span>
+      {% endif %}
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="callout">
+    <h4>What the labels on those cards do and do not say</h4>
+    Across all {{ co.clusters }} flagged clusters, <strong>{{ co.fraud_transactions }} of
+    {{ co.transactions }} transactions ({{ "%.1f"|format(co.fraud_share * 100) }}%) carry a
+    fraud label</strong> in the held-out data, against a base rate of
+    {{ "%.2f"|format(co.base_rate * 100) }}% — an enrichment of
+    <strong>{{ "%.1f"|format(co.enrichment) }}×</strong>. The engine never saw these labels;
+    they are applied here only to report how its choices turned out.
+    <p style="margin:.6rem 0 0"><strong>“All {{ '{' }}n{{ '}' }} fraud” is not a ring
+    claim.</strong> It means every transaction in that cluster is labelled fraud —
+    {{ co.all_fraud_clusters }} of {{ co.clusters }} clusters qualify. Three unrelated
+    fraudsters who happen to share an address satisfy that condition and coordinate nothing.
+    RingWatch has no ring-level ground truth and this does not create any.</p>
+    <p style="margin:.6rem 0 0">{{ co.zero_fraud_clusters }} cluster contains no labelled
+    fraud at all, and it is shown with the rest rather than dropped. This is also a
+    <em>cluster-surfacing</em> result, not a predictive-lift one: §1 still says the graph
+    layer does not improve AUC-PR, and both statements are true at once.</p>
+  </div>
+  {% endif %}
+
   {% for c in clusters %}
-  <details class="cluster">
+  <details class="cluster" id="cluster-{{ c.evidence.cluster_id }}">
     <summary>
       <span class="cid">cluster {{ c.evidence.cluster_id }}</span>
       <span class="gist">{{ c.evidence.entity_count }} entities ·
@@ -1265,6 +1372,47 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
     node.addEventListener("focus", function () { on(true); });
     node.addEventListener("blur", function () { on(false); });
   });
+})();
+
+/* ---------------------------------------------------------------------------
+ * SMALL MULTIPLES -> EVIDENCE PANEL
+ *
+ * Each card opens the matching <details> below and scrolls to it. The panels are real
+ * <details> elements and the cards are real <button>s, so the whole section still works
+ * with JavaScript off -- you just scroll and click the panel yourself.
+ * ------------------------------------------------------------------------- */
+(function () {
+  var cards = document.querySelectorAll(".cardlet");
+  if (!cards.length) return;
+
+  function panelFor(id) { return document.getElementById("cluster-" + id); }
+
+  function sync() {
+    Array.prototype.forEach.call(cards, function (card) {
+      var panel = panelFor(card.getAttribute("data-cluster"));
+      var open = !!(panel && panel.open);
+      card.classList.toggle("is-open", open);
+      card.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  }
+
+  Array.prototype.forEach.call(cards, function (card) {
+    var panel = panelFor(card.getAttribute("data-cluster"));
+    if (!panel) return;
+
+    card.addEventListener("click", function () {
+      panel.open = true;
+      sync();
+      // `block: "start"` puts the panel heading at the top rather than centring a very
+      // tall panel, which on a short viewport would land the reader mid-evidence.
+      panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    // Closing a panel by hand must clear its card's state, or the two disagree.
+    panel.addEventListener("toggle", sync);
+  });
+
+  sync();
 })();
 
 /* ---------------------------------------------------------------------------

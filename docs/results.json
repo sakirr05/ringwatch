@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generated_at": "2026-09-03T21:19:08+00:00",
-    "git_commit": "28e10dc",
+    "generated_at": "2026-09-03T21:32:24+00:00",
+    "git_commit": "c8de21b",
     "note": "Produced by scripts/export_results.py from cached model scores. The web app renders this file and computes nothing."
   },
   "dataset": {
@@ -2901,6 +2901,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 3,
+        "fraud_transactions": 1,
+        "fraud_share": 0.3333333333333333,
+        "all_fraud": false,
+        "caught": 1,
+        "missed": 0,
+        "false_alarms": 0
       }
     },
     {
@@ -3108,6 +3117,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 2,
+        "fraud_transactions": 2,
+        "fraud_share": 1.0,
+        "all_fraud": true,
+        "caught": 2,
+        "missed": 0,
+        "false_alarms": 0
       }
     },
     {
@@ -3325,6 +3343,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 2,
+        "fraud_transactions": 1,
+        "fraud_share": 0.5,
+        "all_fraud": false,
+        "caught": 1,
+        "missed": 0,
+        "false_alarms": 0
       }
     },
     {
@@ -3672,6 +3699,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 2,
+        "fraud_transactions": 2,
+        "fraud_share": 1.0,
+        "all_fraud": true,
+        "caught": 2,
+        "missed": 0,
+        "false_alarms": 0
       }
     },
     {
@@ -3892,6 +3928,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 2,
+        "fraud_transactions": 1,
+        "fraud_share": 0.5,
+        "all_fraud": false,
+        "caught": 1,
+        "missed": 0,
+        "false_alarms": 0
       }
     },
     {
@@ -4058,6 +4103,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 2,
+        "fraud_transactions": 1,
+        "fraud_share": 0.5,
+        "all_fraud": false,
+        "caught": 1,
+        "missed": 0,
+        "false_alarms": 0
       }
     },
     {
@@ -4294,6 +4348,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 4,
+        "fraud_transactions": 1,
+        "fraud_share": 0.25,
+        "all_fraud": false,
+        "caught": 1,
+        "missed": 0,
+        "false_alarms": 0
       }
     },
     {
@@ -4650,6 +4713,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 3,
+        "fraud_transactions": 0,
+        "fraud_share": 0.0,
+        "all_fraud": false,
+        "caught": 0,
+        "missed": 0,
+        "false_alarms": 1
       }
     },
     {
@@ -4903,6 +4975,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 12,
+        "fraud_transactions": 6,
+        "fraud_share": 0.5,
+        "all_fraud": false,
+        "caught": 6,
+        "missed": 0,
+        "false_alarms": 0
       }
     },
     {
@@ -5241,6 +5322,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 3,
+        "fraud_transactions": 2,
+        "fraud_share": 0.6666666666666666,
+        "all_fraud": false,
+        "caught": 2,
+        "missed": 0,
+        "false_alarms": 1
       }
     },
     {
@@ -5453,6 +5543,15 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 3,
+        "fraud_transactions": 1,
+        "fraud_share": 0.3333333333333333,
+        "all_fraud": false,
+        "caught": 1,
+        "missed": 0,
+        "false_alarms": 0
       }
     },
     {
@@ -5665,9 +5764,29 @@
         ],
         "rejection_reason": null,
         "requires_human_approval": true
+      },
+      "outcome": {
+        "transaction_count": 3,
+        "fraud_transactions": 2,
+        "fraud_share": 0.6666666666666666,
+        "all_fraud": false,
+        "caught": 1,
+        "missed": 1,
+        "false_alarms": 0
       }
     }
   ],
+  "cluster_outcomes": {
+    "clusters": 12,
+    "transactions": 41,
+    "fraud_transactions": 20,
+    "fraud_share": 0.4878048780487805,
+    "base_rate": 0.034409184813899145,
+    "enrichment": 14.17658920683695,
+    "all_fraud_clusters": 2,
+    "zero_fraud_clusters": 1,
+    "missed_fraud": 1
+  },
   "narratives_validated": 12,
   "narratives_total": 12
 }

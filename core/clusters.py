@@ -11,6 +11,8 @@ to talk to the narrative side; the narrative side has no way to talk back.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 
@@ -119,3 +121,81 @@ def _evidence_for(cluster_id: int, rows: pd.DataFrame) -> ClusterEvidence:
         max_risk_score=round(float(rows["_score"].max()), 4),
         mean_risk_score=round(float(rows["_score"].mean()), 4),
     )
+
+
+# ---------------------------------------------------------------------------
+# RETROSPECTIVE OUTCOMES -- DELIBERATELY NOT PART OF ClusterEvidence
+#
+# `ClusterEvidence` defines exactly what the language model is permitted to see and quote.
+# The held-out fraud label must never enter it. A narrator handed ground truth would write
+# narratives that look accurate for a reason that has nothing to do with the evidence, and
+# the whole "the model wrote prose about numbers core/ computed" framing would be a lie.
+#
+# So outcomes live here, in a separate object, produced for the DASHBOARD only. They answer
+# the question a reviewer actually has -- "was the engine right about these clusters?" --
+# against labels the engine never used.
+#
+# WHAT `all_fraud` DOES AND DOES NOT MEAN
+# ---------------------------------------
+# It means: every transaction in this cluster carries a fraud label in the held-out data.
+# It does NOT mean the cluster is a verified ring. Three unrelated fraudsters who happen to
+# share an address form an all-fraud cluster and coordinate nothing. RingWatch has no
+# ring-level ground truth and this does not create any; conflating the two is exactly the
+# claim this project refuses to make.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ClusterOutcome:
+    """How one flagged cluster turned out, measured against the held-out labels."""
+
+    cluster_id: int
+    transaction_count: int
+    fraud_transactions: int
+    fraud_share: float
+    all_fraud: bool
+    caught: int         # fraud the model flagged at this threshold
+    missed: int         # fraud the model did not flag
+    false_alarms: int   # non-fraud the model flagged
+
+
+def cluster_outcomes(
+    test: pd.DataFrame,
+    scores: np.ndarray,
+    y_true: np.ndarray,
+    threshold: float,
+    selected_components: list[int],
+) -> list[ClusterOutcome]:
+    """Ground-truth outcome per flagged cluster, in the order `build_cluster_evidence` chose.
+
+    Takes `selected_components` rather than re-running the selection, for the same reason
+    that list exists at all: two independent derivations of "which clusters" would
+    eventually disagree, and the disagreement would surface as a dashboard whose evidence
+    panel and summary card describe different clusters.
+    """
+    frame = test.copy()
+    frame["_flagged"] = np.asarray(scores) >= threshold
+    frame["_fraud"] = np.asarray(y_true).astype(bool)
+
+    outcomes: list[ClusterOutcome] = []
+    for cluster_id, component in enumerate(selected_components):
+        rows = frame[frame["g_component"] == component]
+        fraud = rows["_fraud"]
+        flagged = rows["_flagged"]
+        n = int(len(rows))
+        n_fraud = int(fraud.sum())
+
+        outcomes.append(
+            ClusterOutcome(
+                cluster_id=cluster_id,
+                transaction_count=n,
+                fraud_transactions=n_fraud,
+                fraud_share=(n_fraud / n) if n else 0.0,
+                # `n > 0` guards the vacuous truth: an empty cluster is not "all fraud".
+                all_fraud=bool(n > 0 and n_fraud == n),
+                caught=int((fraud & flagged).sum()),
+                missed=int((fraud & ~flagged).sum()),
+                false_alarms=int((~fraud & flagged).sum()),
+            )
+        )
+    return outcomes

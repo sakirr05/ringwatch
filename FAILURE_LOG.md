@@ -118,6 +118,37 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-05 00:15] — Two different 12s, and I nearly badged the wrong one
+
+- **Symptom:** The plan for the cluster grid asked for a "fully-fraudulent flag" per card.
+  The ring-concentration test reports **12 all-fraud components**, and the dashboard shows
+  **12 flagged clusters**. The obvious reading is that these are the same twelve, which
+  would make the flag trivial: badge every card.
+- **Diagnosis:** They are not the same twelve, and the matching count is a coincidence. The
+  concentration test's 12 are components of the *entity graph* — 12 out of 4,935 — where
+  every labelled member is fraud. The dashboard's 12 are the top clusters by peak risk
+  score, selected at the insult-constrained threshold. Computing the actual outcome per
+  flagged cluster gives **2 of 12** all-fraud, one cluster with **no labelled fraud at
+  all**, and one missed fraud. Badging all twelve "fully fraudulent" would have been a
+  straightforwardly false claim on the most prominent new element on the page, and the
+  coincidence of the two numbers is exactly what would have stopped anyone noticing.
+- **Second problem, found while fixing the first:** the label was not in the exported data
+  at all, and the tempting place to put it was `ClusterEvidence` — which is what the
+  narrative and orchestrator layers read. Handing a narrator the ground-truth label would
+  produce narratives that look accurate for a reason having nothing to do with the evidence,
+  and the project's central claim would be hollow. Outcomes therefore live in a separate
+  `ClusterOutcome` object, computed after the evidence, exported as a sibling block, with a
+  test asserting no ground-truth field appears in the evidence or the case file.
+- **Fix:** `core.clusters.cluster_outcomes`, tested first this time. The grid shows what is
+  true — 2 all-fraud, 1 zero-fraud, 48.8% fraud share against a 3.44% base rate (14.2x
+  enrichment) — with the zero-fraud cluster displayed rather than dropped, and the page
+  states in as many words that "all N fraud" is not a ring claim.
+- **Also found:** the README's "Ground-truth honesty" section still listed as a defensible
+  claim that graph features "produce a **measured PR-AUC lift**". That has been false since
+  the headline result was found — the ablation says no lift, and k-core is significantly
+  worse. Stale prose contradicting the project's own headline, three sections above it.
+  Corrected the prose, not the metric.
+
 ## [2026-09-04 22:30] — Rounding for file size made an exactness claim false by 5e-9
 
 - **Symptom:** The threshold explorer's curve is exported with rounded fields to keep
