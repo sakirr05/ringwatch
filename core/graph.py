@@ -361,7 +361,9 @@ def attach_graph_features(
 
 
 def build_features_for_split(
-    train: pd.DataFrame, test: pd.DataFrame
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    max_group_size: int = MAX_GROUP_SIZE,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """Build graph features for both sides WITHOUT leaking the future into training.
 
@@ -378,12 +380,19 @@ def build_features_for_split(
 
     An entity therefore may have different features in the two frames, which is correct:
     its neighbourhood genuinely grew over time.
+
+    `max_group_size` defaults to the shipped hub cap, so every existing caller is
+    unchanged. It is a parameter rather than a constant read at call time because the
+    README publishes a coverage sweep at caps 5 / 20 / 50, and until the Phase 11 audit
+    there was NO way to reproduce that table from committed code -- it had been produced
+    by editing the constant by hand. A published number a reviewer cannot regenerate is a
+    number on trust. See `scripts/coverage_sweep.py`.
     """
-    train_graph = build_graph(entity_frame(train))
+    train_graph = build_graph(entity_frame(train), max_group_size=max_group_size)
     train_features = graph_features(train_graph)
 
     combined = pd.concat([train, test], axis=0)
-    full_graph = build_graph(entity_frame(combined))
+    full_graph = build_graph(entity_frame(combined), max_group_size=max_group_size)
     full_features = graph_features(full_graph)
 
     return (

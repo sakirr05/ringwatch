@@ -126,20 +126,42 @@ cases cannot resolve an effect that small.
 Yes — that is the first objection, so it was tested rather than argued about. Re-running
 the full pipeline at higher hub-suppression caps:
 
-| cap | coverage of test rows | AUC-PR | Δ vs baseline |
-|---|---|---|---|
-| 5 *(shipped)* | 5.38% | 0.5168 | −0.0020 |
-| 20 | 15.41% | 0.5191 | **+0.0003** |
-| 50 | 26.18% | 0.5152 | −0.0036 |
+| cap | coverage of test rows | AUC-PR | Δ (point) | Δ (bootstrap) | 95% CI |
+|---|---|---|---|---|---|
+| 5 *(shipped)* | 5.38% | 0.5168 | −0.0020 | −0.0020 | [−0.0056, +0.0013] |
+| 20 | 15.41% | 0.5191 | **+0.0003** | +0.0002 | [−0.0041, +0.0039] |
+| 50 | 26.18% | 0.5152 | −0.0036 | −0.0036 | [−0.0073, +0.0000] |
 
-Tripling coverage moves AUC-PR by +0.0003 — an order of magnitude *inside* the ±0.004
-noise band established by the bootstrap above, and the cap-20 run exhausted its 2,000
+The confidence intervals are new as of the Phase 11 audit, and they matter: the claim
+"inside the noise band" used to be an appeal to the ablation's ±0.004 and is now directly
+checkable on this table's own rows. **Every interval spans zero.** Two delta columns are
+shown because two different quantities get called "the delta" — the point estimate (one
+model's AUC-PR minus the other's) and the mean of 400 paired resampled differences, which
+is the one the CI belongs to. They agree at four decimals on two of three rows, and the
+cap-20 row is where they do not: +0.0003 against +0.0002. Both are reported rather than
+one being quietly picked.
+
+Tripling coverage moves AUC-PR by +0.0003 — an order of magnitude *inside* the noise band,
+with a CI of [−0.0041, +0.0039] that spans zero — and the cap-20 run exhausted its 2,000
 boosting rounds without early stopping, making it the less trustworthy of the three.
 Quintupling coverage makes things actively worse.
 
 **Coverage is not the binding constraint.** The +0.0003 is reported here precisely
 *because* it is positive and meaningless: selecting it as "the graph helps at cap 20"
 would be exactly the p-hacking this project refused to do.
+
+```bash
+python scripts/coverage_sweep.py          # regenerates this table
+```
+
+That script exists because of the Phase 11 audit, and the reason is worth stating rather
+than hiding. **This was the one table in the project with no reproducible path.** Every
+other figure regenerates from `run.py` or `scripts/export_results.py`; these three rows had
+been produced by editing `MAX_GROUP_SIZE` in `core/graph.py` by hand and writing the result
+down — which makes them a published claim a reviewer has to take on trust, in a project
+whose entire argument is that you should not have to. The hub cap is now a parameter of
+`build_features_for_split` (default unchanged, asserted by test), and the sweep is a driver
+that calls the same training, evaluation and bootstrap the shipped ablation uses.
 
 ### Where the harm actually comes from
 
@@ -1158,6 +1180,13 @@ bootstrap with Bonferroni correction across the full family of 8 — which is wh
 the multiplicity correction. Across this entire session, **525 tests pass and not one
 existing test was loosened or modified**; `git diff` over `tests/` is empty on every commit.
 
+**Reproducibility was measured, not asserted.** The final audit wiped the model cache and
+retrained everything from the raw data. All six regenerable score files came back
+**bit-identical by SHA-256**, and a full re-export produced an artifact with **zero
+differences** from the committed one — every number, every string, every structure. (One
+honest caveat: the LLM prose matches because responses are SHA-256 cached, not because the
+model is deterministic. The *numbers* match because the pipeline is.)
+
 The recurring pattern worth pointing at: a result looked good, the mechanism got checked, and
 the check changed the claim. Drift "improved" until prevalence explained it, and the first
 correction was also wrong. Elliptic's z = +0.0 read as a clean null and was a statistic with
@@ -1186,6 +1215,13 @@ unrelated 12s. Each of those is in `FAILURE_LOG.md` with the wrong version prese
   narrow property got restated as a broad one, and the broad version was the one in the
   summary a reader actually reads. All three are corrected and logged. It is the failure mode
   this project is most prone to, precisely because its whole pitch is rigour.
+- **One published table had no reproducible path until the final audit.** The hub-cap
+  coverage sweep was produced by editing a constant by hand. Every other figure regenerates
+  from a committed entry point; that one required taking my word for it, in a project whose
+  entire argument is that you should not have to. It has an entry point now
+  (`scripts/coverage_sweep.py`), but it took wiping the cache to notice — a warm re-run
+  reproduces a stale claim perfectly, which is worth remembering about any "it reproduces"
+  statement, including the ones above.
 
 ### What would change the verdict
 

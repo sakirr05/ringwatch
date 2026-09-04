@@ -648,14 +648,17 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
 
   <div class="callout callout-warn">
     <h4>The result that nearly became a false headline</h4>
+    {% set cen = (vw.variants | selectattr('key', 'equalto', 'centrality') | list | first) %}
     <code>+ centrality</code> — hand-implemented PageRank and Brandes betweenness, the
     algorithms PayPal names for ring detection — came back <strong>significantly better
-    under value weighting</strong> (+0.0125, uncorrected 95% CI [+0.0024, +0.0220]) while
+    under value weighting</strong> ({{ "%+.4f"|format(cen.value_delta) }}, uncorrected 95%
+    CI [{{ "%+.4f"|format(cen.value_ci[0]) }}, {{ "%+.4f"|format(cen.value_ci[1]) }}]) while
     being significantly <em>worse</em> on counts. That is exactly the dramatic “the graph
     matters where the money is” story.
-    <p style="margin:.5rem 0 0"><strong>It does not survive correction for the eight
-    comparisons actually run</strong> — the interval becomes [−0.0022, +0.0257] and spans
-    zero. Reporting the one hit without mentioning the other seven would have been selective
+    <p style="margin:.5rem 0 0"><strong>It does not survive correction for the
+    {{ vw.n_comparisons }} comparisons actually run</strong> — the interval becomes
+    [{{ "%+.4f"|format(cen.value_ci_corrected[0]) }},
+    {{ "%+.4f"|format(cen.value_ci_corrected[1]) }}] and spans zero. Reporting the one hit without mentioning the other seven would have been selective
     reporting. The pre-registration committed in advance to treating any positive as
     hypothesis-generating, which is what makes this recoverable rather than tempting.</p>
     <p style="margin:.5rem 0 0">What <em>does</em> survive points the other way: both k-core

@@ -335,7 +335,18 @@ def stage_ablation(df: pd.DataFrame | None = None) -> None:
             name, test[TARGET].values, scores, test["TransactionAmt"].values
         )
 
+    # NOTE ON THE 'vs base' COLUMN, because two different quantities get called "the delta".
+    # This is the POINT delta: one model's AUC-PR minus the other's, on the test set as it
+    # happens to be. The bootstrap section below reports the MEAN of 400 paired resampled
+    # deltas, and that is the number carrying the confidence interval -- so it is the one
+    # docs/results.json, the README and the dashboard all publish.
+    #
+    # They mostly agree to four decimals and for `+ full graph` they do not: -0.0019 here,
+    # -0.0020 there. Neither is wrong; they estimate slightly different things. The column
+    # is labelled explicitly so a reviewer comparing this output against the README finds
+    # the explanation rather than a discrepancy. Found in the Phase 11 audit.
     print(f"\n{'variant':<16} {'features':>9} {'AUC-PR':>9} {'vs base':>10} {'AUC-ROC':>9}")
+    print(f"{'':<16} {'':>9} {'':>9} {'(point)':>10} {'':>9}")
     base_ap = reports["tabular only"].auc_pr
     for name, report in reports.items():
         delta = report.auc_pr - base_ap
@@ -347,7 +358,9 @@ def stage_ablation(df: pd.DataFrame | None = None) -> None:
 
     banner("IS ANY OF THIS DIFFERENCE REAL? (paired bootstrap, 95% CI)")
     print("A raw delta is not a result. Resampling the test set shows how much of each")
-    print("gap is just which transactions landed in the held-out period.\n")
+    print("gap is just which transactions landed in the held-out period.")
+    print("These deltas are resampled MEANS, so they can differ in the last decimal from")
+    print("the point deltas above. These are the ones published, because these carry a CI.\n")
     baseline_scores = scores_by_name["tabular only"]
     for name in ("+ components", "+ k-core", "+ full graph"):
         delta = bootstrap_auc_pr_delta(

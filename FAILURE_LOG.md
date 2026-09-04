@@ -118,6 +118,84 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-05 08:30] — Four hand-typed confidence bounds on the live dashboard, all stale
+
+- **Symptom:** Found by grepping the rendered page for numeric literals and diffing them
+  against `docs/results.json`. The section 2b callout -- "The result that nearly became a
+  false headline", the one this project is most proud of -- carried four confidence-interval
+  bounds typed into the HTML by hand. Every one was wrong in the fourth decimal:
+  uncorrected `[+0.0024, +0.0220]` against the artifact's `[+0.0023, +0.0217]`, corrected
+  `[-0.0022, +0.0257]` against `[-0.0013, +0.0253]`. The delta beside them, `+0.0125`, was
+  right, which is what made it look fine.
+- **Diagnosis:** Nothing could have caught it. The clean-cache re-run reproduced the
+  artifact bit-identically. The README matched the artifact on 28 of 28 figures. The page
+  rendered without error and 525 tests passed. A hand-typed number is invisible to all of
+  it precisely because it is not derived from anything -- it does not participate in any
+  computation, so no consistency check touches it. The figures were presumably correct when
+  typed and went stale under some later change to the bootstrap family.
+- **The bad part:** these were on the LIVE page, in the callout that argues this project
+  corrects itself. Numbers that disagree with the artifact, inside the paragraph explaining
+  how carefully the artifact was checked.
+- **Fix:** Rendered from the artifact through Jinja rather than corrected in place, so the
+  same drift cannot recur. `tests/test_dashboard_freshness.py` asserts both the values and
+  the *structure* -- the callout must reference `cen.value_ci_corrected[0]` and friends, and
+  a four-decimal literal left beside them fails the test. A second test forbids hardcoding
+  any headline metric anywhere in the template.
+- **Worth naming:** every verification in this project so far compared two DERIVED things --
+  artifact against a fresh run, README against artifact. Nothing compared a *typed* thing
+  against a derived one, and that was the gap. Text is where numbers go to stop being
+  checked.
+
+## [2026-09-05 07:45] — One published table had no reproducible path, and the audit is what found it
+
+- **Symptom:** The clean-cache re-run regenerated six of eight cached score files
+  bit-identically. Two -- `scores_graph_cap20.npy` and `scores_graph_cap50.npy` -- were
+  never regenerated at all, because **nothing in `run.py` or `scripts/` references them**.
+- **Diagnosis:** The README publishes a hub-suppression coverage sweep at caps 5 / 20 / 50.
+  It is the table that answers the first objection anyone raises about the graph layer, so
+  it is load-bearing. And it had been produced by editing `MAX_GROUP_SIZE` in
+  `core/graph.py` by hand, running the ablation, and copying the numbers down. Every other
+  figure in this project regenerates from a committed entry point; this one did not. In a
+  project whose whole argument is "do not take my word for it", exactly one table required
+  taking my word for it -- and I would not have noticed without wiping the cache, because a
+  stale artifact reproduces a stale claim perfectly.
+- **Fix:** `build_features_for_split` now takes `max_group_size`, defaulting to
+  `MAX_GROUP_SIZE` so every existing caller is byte-for-byte unchanged (asserted by
+  `test_omitting_the_cap_matches_passing_the_shipped_one`). `scripts/coverage_sweep.py`
+  drives it, reusing the shipped `scores_graph_full.npy` for cap 5 rather than training a
+  second model for a configuration that already has one -- if that retrain disagreed even
+  slightly, the table would contradict the ablation above it.
+- **Two fixture bugs of my own on the way there**, both mine and not the code's: the test
+  frame omitted `card3`/`card5`, which `entity_frame` requires; and the hub shared only
+  `addr1`, which links nothing, because `LINK_KEYS` joins on the composite
+  `(addr1, P_emaildomain)` and never on an address alone. The second is a nice demonstration
+  that the graph does not link entities on a shared postcode by itself.
+- **The general lesson:** reproducibility that is never exercised is indistinguishable from
+  reproducibility that does not exist. Re-running against a warm cache would have "passed".
+
+## [2026-09-05 06:10] — Two numbers both called "the delta", differing in the last decimal
+
+- **Symptom:** Found during the Phase 11 clean-cache re-run, by comparing fresh stdout
+  against the published table. `run.py`'s ablation table prints `+ full graph  -0.0019`.
+  `docs/results.json`, the README and the dashboard all say `-0.0020`.
+- **Diagnosis:** Not a reproducibility failure -- every score file came back
+  **bit-identical** from an empty cache, so nothing had drifted. They are two different
+  estimators wearing the same label. The table's "vs base" is the POINT delta, one model's
+  AUC-PR minus the other's on the test set as it happens to be: 0.5168323 - 0.5187613 =
+  -0.0019290. The published figure is the MEAN of 400 paired resampled deltas, -0.0020259,
+  and that is the quantity the confidence interval belongs to. For `+ components` and
+  `+ k-core` the two agree at four decimals, which is exactly why this survived: it only
+  becomes visible on one of three rows.
+- **Fix:** Labelled, not changed. Per this project's own rule -- never move a reported
+  metric to make two displays agree -- both numbers stay as they are, because both are
+  correct for what they measure. The stdout column is now headed `(point)` with a comment
+  explaining the distinction, and the bootstrap section states that its deltas are resampled
+  means and are the published ones because they carry the CI. A reviewer running the
+  pipeline and diffing against the README now finds an explanation instead of a discrepancy.
+- **Worth noting:** this is the kind of thing only a full re-run surfaces. No test compares
+  stdout to the README, and writing one would be over-fitting to this instance -- the real
+  defence was regenerating everything from scratch and actually reading the output.
+
 ## [2026-09-05 03:20] — Shipping a feature quietly falsified a sentence written four phases earlier
 
 - **Symptom:** Found during the Phase 11 audit, not by a failing test. The dashboard led with
