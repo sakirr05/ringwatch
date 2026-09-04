@@ -11,12 +11,19 @@ Razorpay AI Buildathon 2026 · Track 02 (AI Risk Manager)
 > On Render's free tier the instance spins down after ~15 minutes idle, so **the first
 > request may take 30–60 seconds**. Subsequent requests are fast.
 
-> **What is live vs what is local.** The deployed service **renders committed results and
-> receives webhooks. It never retrains, rescores, or recomputes a metric** — it has neither
+> **What is live vs what is local.** The deployed service **renders committed results,
+> receives webhooks, and never retrains or recomputes any reported metric** — it has neither
 > the 683 MB dataset nor the model cache, both of which are gitignored. Every figure on the
 > dashboard comes from `docs/results.json`, produced locally by
 > `scripts/export_results.py`. The full pipeline — download, temporal split, training, the
 > four-variant ablation, the bootstrap — runs locally and takes several minutes of CPU.
+>
+> Stated at exactly that width. Two routes **do** run the committed booster —
+> `POST /api/score` and the webhook's background task — and both are labelled demonstrations
+> of the ingestion path at 0.69% feature coverage, whose output appears in no reported
+> figure. This sentence previously read "never retrains, **rescores**, or recomputes a
+> metric", which stopped being true when the scoring endpoint shipped in Phase 10. Caught in
+> this project's own audit, recorded in `FAILURE_LOG.md`.
 >
 > On the free tier the instance spins down after ~15 minutes idle, so **a first request can
 > take 30–60 seconds**. The SQLite webhook log is ephemeral and does not survive a restart.
@@ -1103,6 +1110,90 @@ Written as they are discovered, not reconstructed at the end.
   SQLite file as the webhook log. Fine for a demonstration, stated rather than discovered,
   and no reported metric depends on it — but it is not an audit trail you could actually
   rely on in production without durable storage.
+
+## Self-assessment
+
+Written at the end of the final audit, and deliberately not written to flatter. Three things
+are true at once here, and reading only one of them gives a wrong picture.
+
+### What this project actually established
+
+- **Fraud clusters in the entity graph, and the effect is large.** 12 fully-fraudulent
+  connected components against 1.4 ± 1.2 expected under a label permutation null —
+  **z = +8.8**, stable at +8.8 / +8.6 / +9.1 across hub-suppression caps 5 / 20 / 50. This
+  replicates on Elliptic, a graph whose edges were *observed* rather than inferred from a
+  fingerprint heuristic.
+- **That structure does not convert into predictive lift.** Paired bootstrap, 400 resamples,
+  identical resampled rows: `+ k-core` is **significantly worse** (−0.0064, CI [−0.0102,
+  −0.0031]); the other two variants' intervals span zero. Higher coverage does not rescue it
+  (cap 20: +0.0003, an order of magnitude inside the noise band).
+- **The clusters it surfaces are worth an analyst's time.** 20 of 41 transactions across the
+  12 flagged clusters carry a fraud label — 48.8% against a 3.44% base rate, **14.2×**.
+- **The AI boundary holds structurally, not by policy.** `ai/`'s entire *transitive* import
+  closure is the standard library plus `requests`. There is no code path from the language
+  model to a score, and the orchestrator added in this work did not change that.
+
+### What it did not establish, and cannot
+
+- **No ring-level ground truth exists in IEEE-CIS**, so no claim of the form "N rings caught"
+  is made anywhere. The 14.2× enrichment is the closest thing to validation and it is a
+  *cluster-surfacing* result, not a ring count: 2 of 12 clusters are entirely fraud, and
+  three unrelated fraudsters sharing an address would satisfy that while coordinating nothing.
+- **The orchestrator's recommendations are unvalidated.** 12 of 12 drafts passed schema and
+  provenance checks; that measures *containment*, not correctness. Whether "escalate" was
+  right on a given cluster needs the ground truth this dataset does not have.
+- **The LLM's self-reported confidence is unvalidated, deliberately.** Every way to
+  manufacture a validation here is circular.
+- **The live Razorpay integration transfers 0.69% of the model's features.** The webhook,
+  signature verification and idempotency are real; the *scoring* over that path is a
+  measured demonstration of how little transfers, not a working risk assessment.
+
+### Where the engineering is genuinely strong
+
+The evaluation harness, not the model. Every graph algorithm is hand-implemented and
+validated against networkx (k-core by Batagelj–Zaversnik bucket peeling, union-find
+components, Brandes betweenness, power-iteration PageRank). Comparisons use a paired
+bootstrap with Bonferroni correction across the full family of 8 — which is what stopped a
+"+ centrality is significantly better under value weighting" headline that does not survive
+the multiplicity correction. Across this entire session, **525 tests pass and not one
+existing test was loosened or modified**; `git diff` over `tests/` is empty on every commit.
+
+The recurring pattern worth pointing at: a result looked good, the mechanism got checked, and
+the check changed the claim. Drift "improved" until prevalence explained it, and the first
+correction was also wrong. Elliptic's z = +0.0 read as a clean null and was a statistic with
+no power. Cost-sensitive training helped until the Kish effective sample size said why it
+would not. The grid nearly badged all 12 clusters fully-fraudulent off a coincidence of two
+unrelated 12s. Each of those is in `FAILURE_LOG.md` with the wrong version preserved.
+
+### Where it is weak, including one thing that recurs
+
+- **The central hypothesis failed.** The graph layer is the intellectual centre of the project
+  and it adds nothing to prediction. Everything built above it — clusters, SAR workbench,
+  orchestrator — surfaces clusters from features that do not improve the score. That is
+  reported as the headline rather than buried, but it is still the honest summary.
+- **Almost every cluster-level number rests on n = 12** (41 transactions). The enrichment
+  figure is real and it is not precise.
+- **One dataset for the main result.** Elliptic replicates the *clustering* finding, but it is
+  a transaction-flow graph, not a shared-identity graph — a weaker replication than it looks.
+- **Coverage is 5.38% of test rows**, a direct consequence of choosing a hub cap below the
+  percolation transition. Measured, not guessed, but a trade-off with no good corner.
+- **Calibration was diagnosed and not fixed.** The model is systematically under-confident in
+  every bin; Platt or isotonic scaling is the obvious remedy and is not implemented.
+- **I overclaimed three times, in the same shape.** A test named
+  `test_app_layer_computes_nothing` that only checked direct imports; a provenance guard
+  described as catching more than it does; and a dashboard sentence — "this server renders
+  numbers; it never produces them" — that a later phase quietly falsified. Each time a true,
+  narrow property got restated as a broad one, and the broad version was the one in the
+  summary a reader actually reads. All three are corrected and logged. It is the failure mode
+  this project is most prone to, precisely because its whole pitch is rigour.
+
+### What would change the verdict
+
+Ring-level labels. Not more features, not a GNN, not more data. Every ceiling this project
+runs into — the unvalidated confidence field, the unvalidated orchestrator, the inability to
+say whether a flagged cluster is a ring — is the same missing ingredient. A payment processor
+with confirmed-fraud-ring case files could answer in an afternoon what this dataset cannot
+answer at all, and the harness here is built to accept exactly that input.
 
 ## Deployment
 

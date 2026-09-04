@@ -118,6 +118,31 @@ features improve fraud detection. Measured honestly, they do not.
   positive and meaningless — picking it out as "the graph helps at cap 20" is precisely
   the move this entry exists to refuse.
 
+## [2026-09-05 03:20] — Shipping a feature quietly falsified a sentence written four phases earlier
+
+- **Symptom:** Found during the Phase 11 audit, not by a failing test. The dashboard led with
+  "**This server renders numbers; it never produces them.**" and the README with "It never
+  retrains, **rescores**, or recomputes a metric." Both were true when written. Neither was
+  true any more.
+- **Diagnosis:** Phase 10 added `POST /api/score`, which runs the committed booster and
+  returns a number. The webhook's background task already did the same, but it was buried in
+  a clearly-labelled section, so the absolute sentence at the top of the page had survived.
+  Adding a route at the top level made the summary claim false without touching the file the
+  claim lives in — no test could have caught it, because nothing was wrong with the code.
+  The scoped clause immediately after ("no *page load* trains a model, scores a transaction,
+  or recomputes a metric") was and remains exactly true; it was the broader sentence in front
+  of it that had quietly stopped being.
+- **Fix:** Narrowed both to what is actually true, and said in each place what changed and
+  why. The dashboard now leads with the scoped claim and names the two routes that *do* run
+  a model, along with their 0.69% feature coverage and the fact that their output appears in
+  no reported figure. The README does the same.
+- **Why this is the third time:** this project has now corrected an overclaim of exactly
+  this shape three times -- a test named `test_app_layer_computes_nothing` that only checked
+  direct imports, a provenance guard described as catching more than it does, and now this.
+  The pattern is always the same: a true, narrow property gets restated as a broad one, and
+  the broad version is the one that ends up in the summary a reader actually reads. Worth
+  naming as a recurring failure mode rather than three unrelated slips.
+
 ## [2026-09-05 01:40] — A Dockerfile that built, ran, served traffic, and could not be stopped
 
 - **Symptom:** The image built clean and served every route. Docker printed one warning I

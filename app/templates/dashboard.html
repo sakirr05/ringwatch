@@ -487,9 +487,15 @@ line.ge.highlight-provenance { stroke: var(--warn); stroke-width: 1.3; }
   </div>
 
   <p class="lede">Everything on this page was computed offline and frozen into a committed
-  artifact. <strong>This server renders numbers; it never produces them.</strong> No page
-  load trains a model, scores a transaction, or recomputes a metric — the same boundary the
-  project enforces around its language model, applied to its web layer.</p>
+  artifact. <strong>No page load trains a model, scores a transaction, or recomputes a
+  metric</strong> — the same boundary the project enforces around its language model,
+  applied to its web layer.
+  <span class="sub">Stated at exactly that width on purpose. Two routes
+  <em>do</em> run a model — <code>POST /api/score</code> and the webhook's background task —
+  and both are labelled demonstrations of the ingestion path whose output appears nowhere in
+  the figures below. An earlier version of this sentence read “this server renders numbers;
+  it never produces them”, which stopped being true the moment the scoring endpoint shipped;
+  it was caught in this project's own audit and is recorded in the failure log.</span></p>
 
   <p class="meta">
     results commit <strong>{{ r.meta.git_commit }}</strong> ·
