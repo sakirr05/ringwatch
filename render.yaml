@@ -16,7 +16,13 @@ services:
     runtime: python
     plan: free
     region: singapore          # closest to Razorpay's own infrastructure
-    buildCommand: pip install -r requirements.txt
+    # requirements-web.txt, not requirements.txt: the deployed service needs 8 runtime
+    # packages, not the 15 the analysis pipeline uses. scikit-learn, matplotlib, pyarrow
+    # and networkx are analysis-only and cannot run here anyway -- the dataset and model
+    # cache are gitignored. A smaller install means a faster cold boot, which on the free
+    # tier is the difference a visitor actually experiences.
+    # tests/test_docker.py asserts this file stays a strict subset of requirements.txt.
+    buildCommand: pip install -r requirements-web.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     # LIVENESS, not readiness -- and the distinction is load-bearing. /health touches no
     # disk and answers 200 whenever the process is alive. An earlier version returned 503
